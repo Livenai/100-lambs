@@ -1,6 +1,8 @@
 include_directories(${CMAKE_SOURCE_DIR}/controllers)
 
 add_subdirectory(footbot_diffusion)
+add_subdirectory(footbot_lamb_radio)
+add_subdirectory(footbot_lamb_range_and_bearing)
 add_subdirectory(footbot_synchronization)
 add_subdirectory(footbot_flocking)
 add_subdirectory(footbot_gripping)
