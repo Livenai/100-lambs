@@ -4,9 +4,9 @@
 /*
  * Include some necessary headers.
  */
- #include <iostream>
- #include <cstring>
- #include <map>
+#include <iostream>
+#include <cstring>
+#include <map>
 
 // core for log
  #include <argos3/core/simulator/simulator.h>
@@ -38,6 +38,7 @@ using namespace std;
 /*
  * A controller is simply an implementation of the CCI_Controller class.
  */
+
 class CFootBotLamb : public CCI_Controller {
 
 public:
@@ -87,7 +88,6 @@ public:
 
     // activa o desactiva los prints
     bool ENABLE_DEBUG = false;
-
 
 private:
     void static SetIdNum(CFootBotLamb* robot);

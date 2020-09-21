@@ -7,6 +7,7 @@
 
 /****************************************/
 /****************************************/
+UInt8 CFootBotLamb::id_counter = 0;
 
 CFootBotLamb::CFootBotLamb() :
     m_pcWheels(NULL),
@@ -23,8 +24,8 @@ CFootBotLamb::CFootBotLamb() :
     mess_count(0),
     clear_message(false),
     pos() {
-        // CFootBotLamb::SetIdNum(this);
-    }
+        CFootBotLamb::SetIdNum(this);
+}
 
 /****************************************/
 /****************************************/
@@ -52,14 +53,10 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    GetNodeAttributeOrDefault(t_node, "ping_interval", ping_interval, ping_interval);
    ping_interval *= ticks_per_second;
    Reset();
+
 }
 
-void CFootBotLamb::Reset(){
-    //FIXME chapucilla temporal
-        if(GetId()=="lamb_0")   id_num = 0;
-        if(GetId()=="lamb_1")   id_num = 1;
-        if(GetId()=="lamb_2")   id_num = 2;
-
+void CFootBotLamb::Reset() {
     mess_count = 0;
     clear_message = false;
     // m_pcRBAct->ClearData();
@@ -120,7 +117,6 @@ void CFootBotLamb::ControlStep() {
         ping_timer = ping_interval;
     }
     PollMessages();
-
 }
 
 
@@ -170,14 +166,14 @@ void CFootBotLamb::PollMessages(){
                 break;
         }
     }
-    if(messages.size() > 0)
-        LOG<<GetId()<<" tiene "<<neightbors.size()<<" vecinos\n";
+    // if(messages.size() > 0)
+    //     LOG<<GetId()<<" tiene "<<neightbors.size()<<" vecinos\n";
 }
-//FIXME no funciona si quito este comentario
-// void CFootBotLamb::SetIdNum(CFootBotLamb* robot){
-//     robot->id_num = id_counter ++;
-// }
 
+
+void CFootBotLamb::SetIdNum(CFootBotLamb* robot){
+    robot->id_num = id_counter ++;
+}
 
 /****************************************/
 /****************************************/
