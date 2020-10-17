@@ -20,6 +20,7 @@ void CIDQTUserFunctions::Draw(CFootBotEntity& c_entity) {
             c_entity.GetId().c_str()); // text
 }
 
+
 /****************************************/
 /****************************************/
 

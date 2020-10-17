@@ -15,7 +15,7 @@ public:
    virtual ~CIDQTUserFunctions() {}
 
    void Draw(CFootBotEntity& c_entity);
-   
+
 };
 
 #endif

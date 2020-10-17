@@ -1,0 +1,6 @@
+add_library(paint_floor_loop_functions MODULE
+  paint_floor_loop_functions.h
+paint_floor_loop_functions.cpp)
+
+target_link_libraries(paint_floor_loop_functions
+  argos3core_simulator)
