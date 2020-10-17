@@ -23,7 +23,10 @@ CFootBotLamb::CFootBotLamb() :
     ping_interval(3),
     mess_count(0),
     clear_message(false),
-    pos() {
+    pos(),
+    water( BODY_STAT_FULL),
+    food( BODY_STAT_FULL),
+    energy( BODY_STAT_FULL) {
         CFootBotLamb::SetIdNum(this);
 }
 
@@ -52,8 +55,27 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    GetNodeAttributeOrDefault(t_node, "velocity", m_fWheelVelocity, m_fWheelVelocity);
    GetNodeAttributeOrDefault(t_node, "ping_interval", ping_interval, ping_interval);
    ping_interval *= ticks_per_second;
-   Reset();
 
+   bt = BrainTree::Builder()
+            .composite<BrainTree::Selector>()
+                .composite<BrainTree::Sequence>()
+                    .leaf<Condition>(this, "water")
+                    .leaf<Action>(this, "water")
+                .end()
+                .composite<BrainTree::Sequence>()
+                    .leaf<Condition>(this, "food")
+                    .leaf<Action>(this, "food")
+                .end()
+                // .composite<BrainTree::Sequence>()
+                //     .leaf<Condition>(this, "energy")
+                //     .leaf<Action>(this, "energy")
+                // .end()
+                // .leaf<Action>(this, "wander")
+                // .leaf<PrintNode>(this, "water")
+           .end()
+           .build();
+
+   Reset();
 }
 
 void CFootBotLamb::Reset() {
@@ -62,12 +84,20 @@ void CFootBotLamb::Reset() {
     // m_pcRBAct->ClearData();
     ping_timer = ping_interval;
     neightbors.clear();
+    water = BODY_STAT_FULL;
+    food = BODY_STAT_FULL;
+    energy = BODY_STAT_FULL;
 }
 
 /****************************************/
 /****************************************/
 
 void CFootBotLamb::ControlStep() {
+    bt.update();
+    water --;
+    food --;
+    energy --;
+
     // OBTENEMOS EL ID DEL ROBOT E IMPRIMIMOS
     string id = this->GetId();
 
@@ -175,6 +205,39 @@ void CFootBotLamb::SetIdNum(CFootBotLamb* robot){
 
 /****************************************/
 /****************************************/
+
+BodyState CFootBotLamb::getBodyState(UInt8 health_stat){
+    if (health_stat > BODY_STAT_BAD)
+        return BodyState::GOOD;
+    else if (health_stat > BODY_STAT_CRITIC)
+        return BodyState::BAD;
+    else
+        return BodyState::CRITIC;
+}
+/*******************************************************/
+
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::Condition::update(){
+    LOG<<lamb->GetId()<<" w : "<< lamb->water
+        <<" f: "<<lamb->food
+        <<" e: "<<lamb->energy<<std::endl;
+    if(lamb->getBodyState(*health_stat) != BodyState::GOOD)
+        return Status::Success;
+    else
+        return Status::Failure;
+}
+
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::Action::update(){
+    *health_stat +=2;
+    return Status::Success;
+}
+
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::PrintNode::update(){
+    LOG<<lamb->GetId()<<" w : "<< lamb->water
+        <<" f: "<<lamb->food
+        <<" e: "<<lamb->energy<<std::endl;
+    return Status::Success;
+}
+
 
 /*
  * This statement notifies ARGoS of the existence of the controller.

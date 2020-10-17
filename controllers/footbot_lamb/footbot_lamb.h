@@ -7,9 +7,10 @@
 #include <iostream>
 #include <cstring>
 #include <map>
+#include "BrainTree.h"
 
 // core for log
- #include <argos3/core/simulator/simulator.h>
+#include <argos3/core/simulator/simulator.h>
 /* Definition of the CCI_Controller class. */
 #include <argos3/core/control_interface/ci_controller.h>
 /* Definition of the differential steering actuator */
@@ -29,6 +30,10 @@
 
 #define CODE_PING 1
 #define CODE_PING_REPLY 2
+
+#define BODY_STAT_FULL 50
+#define BODY_STAT_BAD 20
+#define BODY_STAT_CRITIC 10
 /*
  * All the ARGoS stuff in the 'argos' namespace.
  * With this statement, you save typing argos:: every time.
@@ -38,10 +43,13 @@ using namespace std;
 /*
  * A controller is simply an implementation of the CCI_Controller class.
  */
+ enum BodyState {GOOD, BAD, CRITIC};
+
 
 class CFootBotLamb : public CCI_Controller {
 
 public:
+
 
     struct Neightbor_Info{
         CVector2 pos;
@@ -82,14 +90,52 @@ public:
     */
     virtual void Destroy() {}
 
-    void Ping();
-    void SendPosition();
-    void PollMessages();
 
     // activa o desactiva los prints
     bool ENABLE_DEBUG = false;
 
 private:
+    class NodeFootBot: public BrainTree::Node{
+        protected:
+            CFootBotLamb *lamb;
+            UInt8 *health_stat;
+        public:
+            NodeFootBot(CFootBotLamb *lamb, string const  health_stat):Node(){
+                this->lamb = lamb;
+                if (health_stat == "water")
+                    this->health_stat = &(lamb->water);
+                else if(health_stat == "food")
+                    this->health_stat = &(lamb->food);
+                else if(health_stat == "energy")
+                    this->health_stat = &(lamb->energy);
+
+            }
+    };
+
+    class Condition : public NodeFootBot{
+        public:
+            Condition(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+            Status update() override;
+    };
+
+    class Action : public NodeFootBot{
+        public:
+            Action(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+            Status update() override;
+    };
+
+    class PrintNode : public NodeFootBot{
+        public:
+            PrintNode(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+            Status update() override;
+    };
+
+    void Ping();
+    void SendPosition();
+    void PollMessages();
+
+    BodyState getBodyState(UInt8 health_stat);
+
     void static SetIdNum(CFootBotLamb* robot);
 
     static UInt8 id_counter;
@@ -136,6 +182,8 @@ private:
     CVector3 pos;
     std::map<UInt8,Neightbor_Info> neightbors;
 
+    UInt8 energy, food, water;
+    BrainTree::BehaviorTree bt;
 
 };
 

@@ -18,6 +18,8 @@ include(ARGoSBuildOptions)
 include(ARGoSBuildFlags)
 include(ARGoSBuildChecks)
 
+include_directories(utility)
+
 # Descend into the controllers directory
 add_subdirectory(controllers)
 add_subdirectory(loop_functions)
