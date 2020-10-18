@@ -11,6 +11,8 @@
 
 // core for log
 #include <argos3/core/simulator/simulator.h>
+#include <argos3/core/utility/math/angles.h>
+#include <argos3/core/utility/math/rng.h>
 /* Definition of the CCI_Controller class. */
 #include <argos3/core/control_interface/ci_controller.h>
 /* Definition of the differential steering actuator */
@@ -31,9 +33,13 @@
 #define CODE_PING 1
 #define CODE_PING_REPLY 2
 
-#define BODY_STAT_FULL 50
-#define BODY_STAT_BAD 20
-#define BODY_STAT_CRITIC 10
+#define HP_STAT_FULL 700
+#define HP_STAT_BAD 200
+#define HP_STAT_CRITIC 100
+
+//en radianes
+#define ANGLE_THRESHOLD 0.035
+
 /*
  * All the ARGoS stuff in the 'argos' namespace.
  * With this statement, you save typing argos:: every time.
@@ -43,19 +49,24 @@ using namespace std;
 /*
  * A controller is simply an implementation of the CCI_Controller class.
  */
- enum BodyState {GOOD, BAD, CRITIC};
+ enum HPState {GOOD, BAD, CRITIC};
 
+ struct Neightbor_Info{
+     CVector2 pos;
+     Real range;
+     CRadians bearing;
+ };
 
+struct EulerRotation{
+    CRadians x,y,z;
+    EulerRotation(){
+        x = y = z = CRadians::ZERO;
+    }
+};
 class CFootBotLamb : public CCI_Controller {
 
 public:
 
-
-    struct Neightbor_Info{
-        CVector2 pos;
-        Real range;
-        CRadians bearing;
-    };
 
     /* Class constructor. */
     CFootBotLamb();
@@ -95,48 +106,23 @@ public:
     bool ENABLE_DEBUG = false;
 
 private:
-    class NodeFootBot: public BrainTree::Node{
-        protected:
-            CFootBotLamb *lamb;
-            UInt8 *health_stat;
-        public:
-            NodeFootBot(CFootBotLamb *lamb, string const  health_stat):Node(){
-                this->lamb = lamb;
-                if (health_stat == "water")
-                    this->health_stat = &(lamb->water);
-                else if(health_stat == "food")
-                    this->health_stat = &(lamb->food);
-                else if(health_stat == "energy")
-                    this->health_stat = &(lamb->energy);
 
-            }
-    };
-
-    class Condition : public NodeFootBot{
-        public:
-            Condition(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
-            Status update() override;
-    };
-
-    class Action : public NodeFootBot{
-        public:
-            Action(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
-            Status update() override;
-    };
-
-    class PrintNode : public NodeFootBot{
-        public:
-            PrintNode(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
-            Status update() override;
-    };
+    void TurnLeft();
+    void TurnRight();
+    void MoveForward();
+    void Stop();
 
     void Ping();
     void SendPosition();
     void PollMessages();
 
-    BodyState getBodyState(UInt8 health_stat);
+    HPState getHPState(UInt32 health_stat);
+    bool isInPlace(CVector2 point);
 
     void static SetIdNum(CFootBotLamb* robot);
+
+    /* Generador de números aleatorios */
+    CRandom::CRNG*  rng;
 
     static UInt8 id_counter;
     UInt8 id_num;
@@ -174,16 +160,116 @@ private:
     * It is set to [-alpha,alpha]. */
     CRange<CRadians> m_cGoStraightAngleRange;
 
-    Real ping_interval;
-    Real ping_timer;
-    UInt8 mess_count;
-    bool clear_message;
+    //Variables para determinar cuando se hace ping y se reducen los puntos de salud
+    Real ping_interval, hp_interval;
+    Real ping_timer, hp_timer;
 
-    CVector3 pos;
+    UInt8 mess_count;
+    bool clear_message;//bandera
     std::map<UInt8,Neightbor_Info> neightbors;
 
-    UInt8 energy, food, water;
+    CVector2 pos;
+    EulerRotation rot;
+
+    //Puntos de salud o HP
+    UInt32 energy, food, water;
+
+    CVector2 water_pos, food_pos, bed_pos, random_pos;
+    Real radius;
+
     BrainTree::BehaviorTree bt;
+
+    /****************************************************/
+    //variables para evitar el alojamiento de memoria dinamico en metodos que se llaman repetidamente
+    Real disY;
+    Real disX;
+    CCI_PositioningSensor::SReading readings;
+
+    /****************************************************/
+    //Clases privadas que representan comportamientos en el behavior tree
+    class NodeFootBot: public BrainTree::Node{
+    protected:
+        CFootBotLamb *lamb;
+        UInt32 *health_stat;
+        CVector2 *target_pos;
+    public:
+        NodeFootBot(CFootBotLamb *lamb, string const  health_stat):Node(){
+            this->lamb = lamb;
+            if (health_stat == "water"){
+                this->health_stat = &(lamb->water);
+                target_pos = &(lamb->water_pos);
+            }
+            else if(health_stat == "food"){
+                this->health_stat = &(lamb->food);
+                target_pos = &(lamb->food_pos);
+            }
+            else if(health_stat == "energy"){
+                this->health_stat = &(lamb->energy);
+                target_pos = &(lamb->bed_pos);
+            }
+            else if(health_stat == "random"){
+                this->health_stat = NULL;
+                target_pos = &(lamb->random_pos);
+            }
+
+        }
+    };
+
+
+    class IncreaseHP : public NodeFootBot{
+    public:
+        IncreaseHP(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        Status update() override;
+    };
+
+    class Aligne: public NodeFootBot{
+    public:
+        Aligne(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        Status update() override;
+    private:
+        CRadians angle_to_target;
+    };
+
+    class Advance: public NodeFootBot{
+    public:
+        Advance(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        Status update() override;
+    };
+
+    class SelectRandomPos: public NodeFootBot{
+    public:
+        SelectRandomPos(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        Status update() override;
+    };
+
+    class ConditionDepletion : public NodeFootBot{
+    public:
+        ConditionDepletion(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        Status update() override;
+    };
+
+
+    class ConditionIsInPlace : public NodeFootBot{
+    public:
+        ConditionIsInPlace(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        Status update() override;
+    };
+
+
+    class ConditionAligned: public NodeFootBot{
+    public:
+        ConditionAligned(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        Status update() override;
+    private:
+        CRadians angle_to_target;
+    };
+
+
+    class PrintNode : public NodeFootBot{
+    public:
+        PrintNode(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        Status update() override;
+    };
 
 };
 

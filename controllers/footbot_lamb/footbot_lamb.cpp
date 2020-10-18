@@ -21,13 +21,16 @@ CFootBotLamb::CFootBotLamb() :
     m_cGoStraightAngleRange(-ToRadians(m_cAlpha),
                            ToRadians(m_cAlpha)),
     ping_interval(3),
+    hp_interval(1),
     mess_count(0),
     clear_message(false),
     pos(),
-    water( BODY_STAT_FULL),
-    food( BODY_STAT_FULL),
-    energy( BODY_STAT_FULL) {
+    rot(),
+    water( HP_STAT_FULL),
+    food( HP_STAT_FULL),
+    energy( HP_STAT_FULL) {
         CFootBotLamb::SetIdNum(this);
+        rng = CRandom::CreateRNG( "argos" );
 }
 
 /****************************************/
@@ -53,25 +56,92 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    m_cGoStraightAngleRange.Set(-ToRadians(m_cAlpha), ToRadians(m_cAlpha));
    GetNodeAttributeOrDefault(t_node, "delta", m_fDelta, m_fDelta);
    GetNodeAttributeOrDefault(t_node, "velocity", m_fWheelVelocity, m_fWheelVelocity);
+
+
    GetNodeAttributeOrDefault(t_node, "ping_interval", ping_interval, ping_interval);
    ping_interval *= ticks_per_second;
+   GetNodeAttributeOrDefault(t_node, "hp_dec_interval", hp_interval, hp_interval);
+   hp_interval *= ticks_per_second;
+   //TODO datos obligatorios
+   TConfigurationNode arena_conf = GetNode(CSimulator::GetInstance().GetConfigurationRoot(), "arena");
+   //TODO comprobar valores de los parametros
+   GetNodeAttribute(arena_conf, "radius", radius);
+   radius *= radius;
+   GetNodeAttribute(arena_conf, "water_pos", water_pos);
+   GetNodeAttribute(arena_conf, "food_pos", food_pos);
+   GetNodeAttribute(arena_conf, "bed_pos", bed_pos);
 
+   random_pos = CVector2(-3, -3);
    bt = BrainTree::Builder()
             .composite<BrainTree::Selector>()
+                // Secuencia para beber
                 .composite<BrainTree::Sequence>()
-                    .leaf<Condition>(this, "water")
-                    .leaf<Action>(this, "water")
-                .end()
+                    .leaf<ConditionDepletion>(this, "water")
+                    .composite<BrainTree::Selector>()
+                        .composite<BrainTree::Sequence>()//Está en el sitio?
+                            .leaf<ConditionIsInPlace>(this, "water")
+                            .leaf<IncreaseHP>(this, "water")
+                        .end()
+                        .composite<BrainTree::Sequence>()//Ir al sitio
+                            .composite<BrainTree::Selector>()
+                                .leaf<ConditionAligned>(this, "water")//TODO notAligned
+                                .leaf<Aligne>(this, "water")
+                            .end()
+                            .leaf<Advance>(this, "water")
+                            .leaf<IncreaseHP>(this, "water")
+                        .end()
+                    .end()
+                .end()//Fin de sequencia para beber
+                // Secuencia para comer
                 .composite<BrainTree::Sequence>()
-                    .leaf<Condition>(this, "food")
-                    .leaf<Action>(this, "food")
-                .end()
-                // .composite<BrainTree::Sequence>()
-                //     .leaf<Condition>(this, "energy")
-                //     .leaf<Action>(this, "energy")
-                // .end()
-                // .leaf<Action>(this, "wander")
-                // .leaf<PrintNode>(this, "water")
+                    .leaf<ConditionDepletion>(this, "food")
+                    .composite<BrainTree::Selector>()
+                        .composite<BrainTree::Sequence>()//Está en el sitio?
+                            .leaf<ConditionIsInPlace>(this, "food")
+                            .leaf<IncreaseHP>(this, "food")
+                        .end()
+                        .composite<BrainTree::Sequence>()//Ir al sitio
+                            .composite<BrainTree::Selector>()
+                                .leaf<ConditionAligned>(this, "food")//TODO notAligned
+                                .leaf<Aligne>(this, "food")
+                            .end()
+                            .leaf<Advance>(this, "food")
+                            .leaf<IncreaseHP>(this, "food")
+                        .end()
+                    .end()
+                .end()//Fin de sequencia para comer
+                // Secuencia para dormir
+                .composite<BrainTree::Sequence>()
+                    .leaf<ConditionDepletion>(this, "energy")
+                    .composite<BrainTree::Selector>()
+                        .composite<BrainTree::Sequence>()//Está en el sitio?
+                            .leaf<ConditionIsInPlace>(this, "energy")
+                            .leaf<IncreaseHP>(this, "energy")
+                        .end()
+                        .composite<BrainTree::Sequence>()//Ir al sitio
+                            .composite<BrainTree::Selector>()
+                                .leaf<ConditionAligned>(this, "energy")//TODO notAligned
+                                .leaf<Aligne>(this, "energy")
+                            .end()
+                            .leaf<Advance>(this, "energy")
+                            .leaf<IncreaseHP>(this, "energy")
+                        .end()
+                    .end()
+                .end()//Fin de sequencia para dormir
+                // Secuencia para ir a un sitio aleatorio
+                .composite<BrainTree::Sequence>()
+                    .leaf<SelectRandomPos>(this,"random")
+                    .composite<BrainTree::Selector>()
+                        .leaf<ConditionIsInPlace>(this, "random") //Está en el sitio?
+                        .composite<BrainTree::Sequence>()//Ir al sitio
+                            .composite<BrainTree::Selector>()
+                                .leaf<ConditionAligned>(this, "random")//TODO notAligned
+                                .leaf<Aligne>(this, "random")
+                            .end()
+                            .leaf<Advance>(this, "random")
+                        .end()
+                    .end()
+                .end()//Fin de sequencia para ir a un sitio aleatorio
            .end()
            .build();
 
@@ -83,10 +153,15 @@ void CFootBotLamb::Reset() {
     clear_message = false;
     // m_pcRBAct->ClearData();
     ping_timer = ping_interval;
+    hp_timer = hp_interval;
+
     neightbors.clear();
-    water = BODY_STAT_FULL;
-    food = BODY_STAT_FULL;
-    energy = BODY_STAT_FULL;
+    water = HP_STAT_BAD;
+    food = HP_STAT_FULL;
+    energy = HP_STAT_FULL;
+    // water = HP_STAT_FULL;
+    // food = HP_STAT_FULL;
+    // energy = HP_STAT_FULL;
 }
 
 /****************************************/
@@ -94,47 +169,50 @@ void CFootBotLamb::Reset() {
 
 void CFootBotLamb::ControlStep() {
     bt.update();
-    water --;
-    food --;
-    energy --;
+    if(--hp_timer <=0){
+        if (water > 0)  water --;
+        if (food > 0)  food --;
+        if (energy > 0)  energy --;
+        hp_timer = hp_interval;
+    }
 
-    // OBTENEMOS EL ID DEL ROBOT E IMPRIMIMOS
-    string id = this->GetId();
 
-    // LEEMOS EL SENSOR DE POSICION E IMPRIMIMOS
-    pos = m_pcPosSens->GetReading().Position;
-    if(ENABLE_DEBUG) LOG << "ID: " << id << "   x: " << pos[0] << "\t\ty: " << pos[1] << "\t\tz: " << pos[2] << endl;
+    // OBTENEMOS EL ID DEL ROBOT, LEEMOS EL SENSOR DE POSICION E IMPRIMIMOS
+    readings = m_pcPosSens->GetReading();
+    pos = CVector2(readings.Position.GetX(), readings.Position.GetY());
+    readings.Orientation.ToEulerAngles(rot.z, rot.y, rot.x);
+    // RLOG << food << endl;
 
     /* Get readings from proximity sensor */
-    const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
-    /* Sum them together */
-    CVector2 cAccumulator;
-    for(size_t i = 0; i < tProxReads.size(); ++i) {
-    cAccumulator += CVector2(tProxReads[i].Value, tProxReads[i].Angle);
-    }
-    cAccumulator /= tProxReads.size();
-    /* If the angle of the vector is small enough and the closest obstacle
-    * is far enough, continue going straight, otherwise curve a little
-    */
-    CRadians cAngle = cAccumulator.Angle();
-
-    if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(cAngle) &&
-      cAccumulator.Length() < m_fDelta ) {
-      /* Go straight */
-      m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
-    }
-    else {
-      /* Turn, depending on the sign of the angle */
-      if(cAngle.GetValue() > 0.0f) {
-         m_pcWheels->SetLinearVelocity(m_fWheelVelocity, 0.0f);
-      }
-      else {
-         m_pcWheels->SetLinearVelocity(0.0f, m_fWheelVelocity);
-      }
-    }
+    // const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
+    // /* Sum them together */
+    // CVector2 cAccumulator;
+    // for(size_t i = 0; i < tProxReads.size(); ++i) {
+    //     cAccumulator += CVector2(tProxReads[i].Value, tProxReads[i].Angle);
+    // }
+    // cAccumulator /= tProxReads.size();
+    // /* If the angle of the vector is small enough and the closest obstacle
+    // * is far enough, continue going straight, otherwise curve a little
+    // */
+    // CRadians cAngle = cAccumulator.Angle();
+    //
+    // if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(cAngle) &&
+    //   cAccumulator.Length() < m_fDelta ) {
+    //   /* Go straight */
+    //   m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
+    // }
+    // else {
+    //   /* Turn, depending on the sign of the angle */
+    //   if(cAngle.GetValue() > 0.0f) {
+         // m_pcWheels->SetLinearVelocity(m_fWheelVelocity, 0.0f);
+    //   }
+    //   else {
+    //      m_pcWheels->SetLinearVelocity(0.0f, m_fWheelVelocity);
+    //   }
+    // }
 
     //FIXME pone a 0 el mensaje, es un apaño,
-    //pero no soy capaz de que deje de enviarse en cada step
+    //no soy capaz de que deje de enviarse en cada step
     if(clear_message){
         m_pcRBAct->ClearData();
         clear_message = false;
@@ -147,6 +225,17 @@ void CFootBotLamb::ControlStep() {
     PollMessages();
 }
 
+void CFootBotLamb::TurnLeft()
+{ m_pcWheels->SetLinearVelocity(0.0f, m_fWheelVelocity); }
+
+void CFootBotLamb::TurnRight()
+{ m_pcWheels->SetLinearVelocity(m_fWheelVelocity, 0.0f); }
+
+void CFootBotLamb::MoveForward()
+{ m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity); }
+
+void CFootBotLamb::Stop()
+{ m_pcWheels->SetLinearVelocity(0.0f, 0.0f); }
 
 void CFootBotLamb::Ping(){
     neightbors.clear();
@@ -159,6 +248,7 @@ void CFootBotLamb::Ping(){
     delete data_b;
     clear_message = true; //para enviarlo una sola vez
 }
+
 
 void CFootBotLamb::SendPosition(){
 
@@ -190,63 +280,125 @@ void CFootBotLamb::PollMessages(){
                 n.bearing = m->HorizontalBearing;
 
 
-                // LOG<<GetId()<<" recibe de "<<n.id<<", pos: ("<< n.pos.GetX()<<", " <<n.pos.GetY()<<"), range: " << n.range<< ", bearing: "<< n.bearing<<")\n";
+                // RLOG<<" recibe de "<<n.id<<", pos: ("<< n.pos.GetX()<<", " <<n.pos.GetY()<<"), range: " << n.range<< ", bearing: "<< n.bearing<<")\n";
                 break;
         }
     }
     // if(messages.size() > 0)
-    //     LOG<<GetId()<<" tiene "<<neightbors.size()<<" vecinos\n";
+    //     RLOG<<" tiene "<<neightbors.size()<<" vecinos\n";
 }
 
+
+/****************************************/
+/****************************************/
+
+HPState CFootBotLamb::getHPState(UInt32 health_stat){
+    if (health_stat > HP_STAT_BAD)
+        return HPState::GOOD;
+    else if (health_stat > HP_STAT_CRITIC)
+        return HPState::BAD;
+    else
+        return HPState::CRITIC;
+}
+
+bool CFootBotLamb::isInPlace(CVector2 point){
+    disY = pos.GetY()- point.GetY();
+    disY *= disY;
+    disX = pos.GetX()- point.GetX();
+    disX *= disX;
+    if((disY+disX) < radius)
+        return true;
+    else
+        return false;
+}
 
 void CFootBotLamb::SetIdNum(CFootBotLamb* robot){
     robot->id_num = id_counter ++;
 }
 
-/****************************************/
-/****************************************/
 
-BodyState CFootBotLamb::getBodyState(UInt8 health_stat){
-    if (health_stat > BODY_STAT_BAD)
-        return BodyState::GOOD;
-    else if (health_stat > BODY_STAT_CRITIC)
-        return BodyState::BAD;
-    else
-        return BodyState::CRITIC;
+/*******************************************************
+********************************************************
+*******************************************************/
+//Metodos update de los nodos del behavior trees
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::IncreaseHP::update(){
+    *health_stat = HP_STAT_FULL;
+    return Status::Success;
 }
-/*******************************************************/
 
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::Condition::update(){
+
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::Aligne::update(){
+    angle_to_target = (*target_pos - lamb->pos).Angle()-lamb->rot.z;
+    if(angle_to_target.GetAbsoluteValue() > ANGLE_THRESHOLD){
+        if(angle_to_target < CRadians::ZERO){
+            lamb->TurnRight();
+            return Status::Running;
+        }
+        else {
+            lamb->TurnLeft();
+            return Status::Running;
+        }
+    }
+    else{
+        lamb->Stop();
+        return Status::Success;
+    }
+}
+
+
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::Advance::update(){
+    if(lamb->isInPlace(*target_pos)) {
+        lamb->Stop();
+        return Status::Success;
+    } else{
+        lamb->MoveForward();
+        return Status::Running;
+    }
+}
+
+
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::SelectRandomPos::update(){
+    lamb->random_pos = CVector2(lamb->rng->Uniform(CRange<Real>(-3,3)),
+                        lamb->rng->Uniform(CRange<Real>(-3,3)));
+    LOG<<lamb->random_pos<<endl;
+    return Status::Success;
+}
+
+
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionDepletion::update(){
     LOG<<lamb->GetId()<<" w : "<< lamb->water
         <<" f: "<<lamb->food
-        <<" e: "<<lamb->energy<<std::endl;
-    if(lamb->getBodyState(*health_stat) != BodyState::GOOD)
+        <<" e: "<<lamb->energy<<endl;
+    if(lamb->getHPState(*health_stat) != HPState::GOOD)
         return Status::Success;
     else
         return Status::Failure;
 }
 
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::Action::update(){
-    *health_stat +=2;
-    return Status::Success;
+
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionIsInPlace::update(){
+    if(lamb->isInPlace(*target_pos))
+        return Status::Success;
+    else
+        return Status::Failure;
 }
 
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionAligned::update(){
+    angle_to_target = (*target_pos - lamb->pos).Angle() - lamb->rot.z;
+
+    if(angle_to_target.GetAbsoluteValue() > ANGLE_THRESHOLD)
+        return Status::Failure;
+    else
+        return Status::Success;
+}
+
+//TODO borrar este nodo del arbol mas adelante
 CFootBotLamb::NodeFootBot::Status CFootBotLamb::PrintNode::update(){
-    LOG<<lamb->GetId()<<" w : "<< lamb->water
-        <<" f: "<<lamb->food
-        <<" e: "<<lamb->energy<<std::endl;
+    // LOG<<lamb->GetId()<<" ALINEADO"<<endl;
     return Status::Success;
 }
 
-
-/*
- * This statement notifies ARGoS of the existence of the controller.
- * It binds the class passed as first argument to the string passed as
- * second argument.
- * The string is then usable in the configuration file to refer to this
- * controller.
- * When ARGoS reads that string in the configuration file, it knows which
- * controller class to instantiate.
- * See also the configuration files for an example of how this is used.
+/* binds the class to the string argument to use this controller
+    in the configuration file
  */
 REGISTER_CONTROLLER(CFootBotLamb, "footbot_lamb_controller")
