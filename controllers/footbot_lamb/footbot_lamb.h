@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cstring>
 #include <map>
+#include <math.h>
 #include "BrainTree.h"
 
 // core for log
@@ -116,6 +117,8 @@ private:
     void SendPosition();
     void PollMessages();
 
+    CVector2 CalculateGradient(CVector2 *target);
+
     HPState getHPState(UInt32 health_stat);
     bool isInPlace(CVector2 point);
 
@@ -128,39 +131,22 @@ private:
     UInt8 id_num;
 
     /* Pointer to the differential steering actuator */
-    CCI_DifferentialSteeringActuator* m_pcWheels;
+    CCI_DifferentialSteeringActuator *wheels_act;
     /* Pointer to the foot-bot proximity sensor */
-    CCI_FootBotProximitySensor* m_pcProximity;
+    CCI_FootBotProximitySensor *proxi_sens;
     // Pointer to pos sensor
-    CCI_PositioningSensor* m_pcPosSens;
+    CCI_PositioningSensor *pos_sens;
     //Radio sensor and actuators
-    CCI_RangeAndBearingSensor *m_pcRBSens;
-    CCI_RangeAndBearingActuator *m_pcRBAct;
-    /*
-    * The following variables are used as parameters for the
-    * algorithm. You can set their value in the <parameters> section
-    * of the XML configuration file, under the
-    * <controllers><footbot_diffusion_controller> section.
-    */
+    CCI_RangeAndBearingSensor *rb_sens;
+    CCI_RangeAndBearingActuator *rb_act;
 
-    /* Maximum tolerance for the angle between
-    * the robot heading direction and
-    * the closest obstacle detected. */
-    CDegrees m_cAlpha;
-    /* Maximum tolerance for the proximity reading between
-    * the robot and the closest obstacle.
-    * The proximity reading is 0 when nothing is detected
-    * and grows exponentially to 1 when the obstacle is
-    * touching the robot.
-    */
-    Real m_fDelta;
-    /* Wheel speed. */
-    Real m_fWheelVelocity;
-    /* Angle tolerance range to go straight.
-    * It is set to [-alpha,alpha]. */
-    CRange<CRadians> m_cGoStraightAngleRange;
+    Real normal_speed;
 
-    //Variables para determinar cuando se hace ping y se reducen los puntos de salud
+    //parametros de para Artificial Potential Fields
+    Real alpha, beta;
+
+
+    //variables para calcular cuando se hace ping o se decrementan los HP(health points)
     Real ping_interval, hp_interval;
     Real ping_timer, hp_timer;
 
@@ -180,10 +166,10 @@ private:
     BrainTree::BehaviorTree bt;
 
     /****************************************************/
-    //variables para evitar el alojamiento de memoria dinamico en metodos que se llaman repetidamente
-    Real disY;
-    Real disX;
-    CCI_PositioningSensor::SReading readings;
+    //TODO comentar
+    CVector2 sample_points[4];
+    CCI_PositioningSensor::SReading pos_readings;
+    CCI_FootBotProximitySensor::TReadings proxi_readings;
 
     /****************************************************/
     //Clases privadas que representan comportamientos en el behavior tree
@@ -222,12 +208,10 @@ private:
         Status update() override;
     };
 
-    class Aligne: public NodeFootBot{
+    class GoTo: public NodeFootBot{
     public:
-        Aligne(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        GoTo(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
         Status update() override;
-    private:
-        CRadians angle_to_target;
     };
 
     class Advance: public NodeFootBot{
@@ -260,8 +244,6 @@ private:
     public:
         ConditionAligned(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
         Status update() override;
-    private:
-        CRadians angle_to_target;
     };
 
 
