@@ -65,11 +65,19 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
 
    random_pos = CVector2(-3, -3);//FIXME
 
+   //TODO hardcoded
+   proxi_limit = 0.25;
+   robot_radius = 0.085036758f;
    //para el metodo de calcular gradiente
-   sample_points[0] = CVector2(0, 0.25);
-   sample_points[1] = CVector2(0, -0.25);
-   sample_points[2] = CVector2(0.25,0);
-   sample_points[3] = CVector2(-0.25, 0);
+   sample_points[0] = CVector2(0, 0.08);
+   sample_points[1] = CVector2(0, -0.08);
+   sample_points[2] = CVector2(0.08,0);
+   sample_points[3] = CVector2(-0.08, 0);
+
+   sample_points_norm[0] = CVector2(0, 1);
+   sample_points_norm[1] = CVector2(0, -1);
+   sample_points_norm[2] = CVector2(1,0);
+   sample_points_norm[3] = CVector2(-1, 0);
 
    bt = BrainTree::Builder()
             .composite<BrainTree::Selector>()
@@ -224,8 +232,8 @@ CVector2 CFootBotLamb::CalculateGradient(CVector2 *target){
         if(proxi_readings[i].Value > 0){
             //distancia desde el sensors en metros
             Real dis = -log(proxi_readings[i].Value)/10;
-            dis += 0.085036758; // + el radio del robot
-            obstacles.push_back(CVector2(dis , proxi_readings[i].Angle+ CRadians::PI_OVER_TWO));
+            dis += robot_radius;
+            obstacles.push_back(CVector2(dis , proxi_readings[i].Angle));
         }
     }
 
@@ -238,8 +246,7 @@ CVector2 CFootBotLamb::CalculateGradient(CVector2 *target){
             if(obstacles[1].Length() < min_dis)
                 min_dis = obstacles[1].Length();
         }
-        //0,5 es la maxima distancia medible TODO hardcoded
-        f_rep =  alpha *((1/min_dis)-(1/0.5));
+        f_rep =  alpha * pow((1/min_dis)-(1/proxi_limit),2);
     }
     //calculo de la fuerza atractiva y suma de ambas
     Real f_atr =  beta *(pos-(*target)).SquareLength();
@@ -253,12 +260,12 @@ CVector2 CFootBotLamb::CalculateGradient(CVector2 *target){
         if(obstacles.size() > 0){
             Real min_dis = (obstacles[0]-sample_points[i]).Length();
             for(size_t j = 1; j<obstacles.size(); j++){
-                Real dis = (obstacles[i]-sample_points[i]).Length();
+                Real dis = (obstacles[j]-sample_points[i]).Length();
                 if(dis < min_dis)
                     min_dis = dis;
             }
-            //0,5 es la maxima distancia medible TODO hardcoded
-            f_rep_sp[i] =  alpha *((1/min_dis)-(1/0.5));
+            if(min_dis < proxi_limit)
+                f_rep_sp[i] =  alpha *  pow((1/min_dis)-(1/proxi_limit),2);
         }
         //calculo de la fuerza atractiva y suma de ambas
         f_atr_sp[i] =  beta *(pos+sample_points[i]-(*target)).SquareLength();
@@ -267,7 +274,7 @@ CVector2 CFootBotLamb::CalculateGradient(CVector2 *target){
 
     CVector2 gradient = CVector2(0,0);
     for(size_t i = 0; i < 4 ; i++){
-        gradient += (f - f_sp[i])*sample_points[i].Normalize();
+        gradient += (f - f_sp[i])*sample_points_norm[i];
     }
 
     return gradient;
@@ -310,7 +317,8 @@ CFootBotLamb::NodeFootBot::Status CFootBotLamb::IncreaseHP::update(){
 
 CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoTo::update(){
     CVector2  v = lamb->CalculateGradient(target_pos);
-    LOG<< v<< endl;
+    LOG<<"angle: "<< v.Angle().GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
+    LOG<<"vector: "<< v<< endl;
     CRadians angle_to_target(0);
     if(angle_to_target.GetAbsoluteValue() > ANGLE_THRESHOLD){
         if(angle_to_target < CRadians::ZERO){

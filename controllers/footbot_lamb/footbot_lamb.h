@@ -124,6 +124,9 @@ private:
 
     void static SetIdNum(CFootBotLamb* robot);
 
+    Real proxi_limit;
+    Real robot_radius;
+
     /* Generador de números aleatorios */
     CRandom::CRNG*  rng;
 
@@ -168,6 +171,7 @@ private:
     /****************************************************/
     //TODO comentar
     CVector2 sample_points[4];
+    CVector2 sample_points_norm[4];
     CCI_PositioningSensor::SReading pos_readings;
     CCI_FootBotProximitySensor::TReadings proxi_readings;
 
