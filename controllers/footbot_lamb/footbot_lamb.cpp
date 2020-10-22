@@ -69,15 +69,16 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    proxi_limit = 0.25;
    robot_radius = 0.085036758f;
    //para el metodo de calcular gradiente
-   sample_points[0] = CVector2(0, 0.08);
-   sample_points[1] = CVector2(0, -0.08);
-   sample_points[2] = CVector2(0.08,0);
-   sample_points[3] = CVector2(-0.08, 0);
 
-   sample_points_norm[0] = CVector2(0, 1);
-   sample_points_norm[1] = CVector2(0, -1);
-   sample_points_norm[2] = CVector2(1,0);
-   sample_points_norm[3] = CVector2(-1, 0);
+   CRadians offset = CRadians::TWO_PI / NUM_SAMPLE_POINTS;
+   CVector2 sp(0, robot_radius);
+   for(size_t i = 0; i < NUM_SAMPLE_POINTS; i++){
+       sample_points.push_back(sp);
+       sample_points_norm.push_back(sp);
+       sample_points_norm[i].Normalize();
+       sp.Rotate(offset);
+   }
+
 
    bt = BrainTree::Builder()
             .composite<BrainTree::Selector>()
@@ -224,7 +225,7 @@ void CFootBotLamb::PollMessages(){
 }
 
 //Calculo del vector gradiente usando Artificial Potential Fields
-CVector2 CFootBotLamb::CalculateGradient(CVector2 *target){
+CVector2 CFootBotLamb::CalculateGradient(CVector2 target){
     // obtenemos las vectores que representan la distancia y direccion a los obstaculos
     //desde el centro del robot
     vector<CVector2> obstacles;
@@ -249,13 +250,14 @@ CVector2 CFootBotLamb::CalculateGradient(CVector2 *target){
         f_rep =  alpha * pow((1/min_dis)-(1/proxi_limit),2);
     }
     //calculo de la fuerza atractiva y suma de ambas
-    Real f_atr =  beta *(pos-(*target)).SquareLength();
+    Real f_atr =  beta *(pos-(target)).SquareLength();
     Real f = f_rep + f_atr;
 
 
-    //Calculo de la fuerza repulsiva en 4 puntos alrededor del robot(sample_points)
-    Real f_rep_sp[4], f_atr_sp[4], f_sp[4];
-    for (size_t i = 0; i < 4; i++){
+
+    //Calculo de la fuerza repulsiva en varios puntos alrededor del robot(sample_points)
+    Real f_rep_sp[NUM_SAMPLE_POINTS], f_atr_sp[NUM_SAMPLE_POINTS], f_sp[NUM_SAMPLE_POINTS];
+    for (size_t i = 0; i < NUM_SAMPLE_POINTS; i++){
         f_rep_sp[i] = 0;
         if(obstacles.size() > 0){
             Real min_dis = (obstacles[0]-sample_points[i]).Length();
@@ -268,12 +270,12 @@ CVector2 CFootBotLamb::CalculateGradient(CVector2 *target){
                 f_rep_sp[i] =  alpha *  pow((1/min_dis)-(1/proxi_limit),2);
         }
         //calculo de la fuerza atractiva y suma de ambas
-        f_atr_sp[i] =  beta *(pos+sample_points[i]-(*target)).SquareLength();
+        f_atr_sp[i] =  beta *(pos+sample_points[i]-(target)).SquareLength();
         f_sp[i] = f_rep_sp[i] + f_atr_sp[i];
     }
 
     CVector2 gradient = CVector2(0,0);
-    for(size_t i = 0; i < 4 ; i++){
+    for(size_t i = 0; i < NUM_SAMPLE_POINTS ; i++){
         gradient += (f - f_sp[i])*sample_points_norm[i];
     }
 
@@ -283,7 +285,7 @@ CVector2 CFootBotLamb::CalculateGradient(CVector2 *target){
 /****************************************/
 /****************************************/
 
-HPState CFootBotLamb::getHPState(UInt32 health_stat){
+HPState CFootBotLamb::GetHPState(UInt32 health_stat){
     if (health_stat > HP_STAT_BAD)
         return HPState::GOOD;
     else if (health_stat > HP_STAT_CRITIC)
@@ -292,7 +294,7 @@ HPState CFootBotLamb::getHPState(UInt32 health_stat){
         return HPState::CRITIC;
 }
 
-bool CFootBotLamb::isInPlace(CVector2 point){
+bool CFootBotLamb::IsInPlace(CVector2 point){
     Real dis = (pos - point).Length();
     if( dis < radius)
         return true;
@@ -316,10 +318,17 @@ CFootBotLamb::NodeFootBot::Status CFootBotLamb::IncreaseHP::update(){
 
 
 CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoTo::update(){
-    CVector2  v = lamb->CalculateGradient(target_pos);
+    if(lamb->IsInPlace(*target_pos)){
+        lamb->Stop();
+        return Status::Success;
+    }
+    CVector2  v = lamb->CalculateGradient(*target_pos);
     LOG<<"angle: "<< v.Angle().GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
-    LOG<<"vector: "<< v<< endl;
-    CRadians angle_to_target(0);
+    // LOG<<"vector: "<< v<< endl;
+    CRadians angle_to_target = (v.Angle() - lamb->rot.z).SignedNormalize();
+    // LOG<<"angle2: "<< angle_to_target.GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
+
+    // return Status::Running;
     if(angle_to_target.GetAbsoluteValue() > ANGLE_THRESHOLD){
         if(angle_to_target < CRadians::ZERO){
             lamb->TurnRight();
@@ -331,14 +340,14 @@ CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoTo::update(){
         }
     }
     else{
-        lamb->Stop();
-        return Status::Success;
+        lamb->MoveForward();
+        return Status::Running;
     }
 }
 
 
 CFootBotLamb::NodeFootBot::Status CFootBotLamb::Advance::update(){
-    if(lamb->isInPlace(*target_pos)) {
+    if(lamb->IsInPlace(*target_pos)) {
         lamb->Stop();
         return Status::Success;
     } else{
@@ -360,7 +369,7 @@ CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionDepletion::update(){
     // LOG<<lamb->GetId()<<" w : "<< lamb->water
     //     <<" f: "<<lamb->food
     //     <<" e: "<<lamb->energy<<endl;
-    if(lamb->getHPState(*health_stat) != HPState::GOOD)
+    if(lamb->GetHPState(*health_stat) != HPState::GOOD)
         return Status::Success;
     else
         return Status::Failure;
@@ -368,7 +377,7 @@ CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionDepletion::update(){
 
 
 CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionIsInPlace::update(){
-    if(lamb->isInPlace(*target_pos))
+    if(lamb->IsInPlace(*target_pos))
         return Status::Success;
     else
         return Status::Failure;

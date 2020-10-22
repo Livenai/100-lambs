@@ -39,7 +39,8 @@
 #define HP_STAT_CRITIC 100
 
 //en radianes
-#define ANGLE_THRESHOLD 0.035
+#define ANGLE_THRESHOLD 0.07
+#define NUM_SAMPLE_POINTS 24
 
 /*
  * All the ARGoS stuff in the 'argos' namespace.
@@ -117,10 +118,10 @@ private:
     void SendPosition();
     void PollMessages();
 
-    CVector2 CalculateGradient(CVector2 *target);
+    CVector2 CalculateGradient(CVector2 target);
 
-    HPState getHPState(UInt32 health_stat);
-    bool isInPlace(CVector2 point);
+    HPState GetHPState(UInt32 health_stat);
+    bool IsInPlace(CVector2 point);
 
     void static SetIdNum(CFootBotLamb* robot);
 
@@ -170,8 +171,8 @@ private:
 
     /****************************************************/
     //TODO comentar
-    CVector2 sample_points[4];
-    CVector2 sample_points_norm[4];
+    vector<CVector2> sample_points;
+    vector<CVector2> sample_points_norm;
     CCI_PositioningSensor::SReading pos_readings;
     CCI_FootBotProximitySensor::TReadings proxi_readings;
 
