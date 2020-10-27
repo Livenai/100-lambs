@@ -88,32 +88,32 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
 
 
    bt = BrainTree::Builder()
-            .composite<BrainTree::Selector>()
-                // Secuencia para beber
-                .composite<BrainTree::Sequence>()
-                    .leaf<ConditionDepletion>(this, "water")
                     .composite<BrainTree::Selector>()
-                        .composite<BrainTree::Sequence>()//Está en el sitio?
-                            .leaf<ConditionIsInPlace>(this, "water")
-                            .leaf<IncreaseHP>(this, "water")
-                        .end()
-                        .composite<BrainTree::Sequence>()//Ir al sitio
-                            .leaf<GoTo>(this, "water")
-                            // .composite<BrainTree::Selector>()
-                            //     .leaf<ConditionAligned>(this, "water")
-                            //     .leaf<Aligne>(this, "water")
-                            // .end()
-                            // .leaf<Advance>(this, "water")
-                            // .leaf<IncreaseHP>(this, "water")
-                        .end()
+                        // Secuencia para beber
+                        .composite<BrainTree::Sequence>()
+                            .leaf<ConditionDepletion>(this, "water")
+                            .composite<BrainTree::Selector>()
+                                .composite<BrainTree::Sequence>()//Está en el sitio?
+                                    .leaf<ConditionIsInPlace>(this, "water")
+                                    .leaf<IncreaseHP>(this, "water")
+                                .end()
+                                .composite<BrainTree::Sequence>()//Ir al sitio
+                                    .leaf<GoTo>(this, "water")
+                                    // .composite<BrainTree::Selector>()
+                                    //     .leaf<ConditionAligned>(this, "water")
+                                    //     .leaf<Aligne>(this, "water")
+                                    // .end()
+                                    // .leaf<Advance>(this, "water")
+                                    // .leaf<IncreaseHP>(this, "water")
+                                .end()
+                            .end()
+                        .end()//Fin de sequencia para beber
                     .end()
-                .end()//Fin de sequencia para beber
-           .end()
-           .build();
+                .build();
 
    Reset();
 }
-//TODO el reinicio no funciona correctamente, es por el arbol
+//TODO el reinicio no funciona correctamente siempre, es por el arbol
 void CFootBotLamb::Reset() {
     mess_count = 0;
     clear_message = false;
@@ -236,77 +236,35 @@ void CFootBotLamb::PollMessages(){
 CVector2 CFootBotLamb::CalculateDirection(CVector2 target){
     // inicialmente la direccion es la del objetivo
     CVector2 direction = target - pos;
-    direction.Normalize(); //TODO creo que es mejor normalizarlo
+    direction.Normalize();
     direction *= beta;
     //a la direccion inicial se le suman vectores en direccion contraria a los obstaculos
     //detectados
-    for(size_t i = 0; i < proxi_readings.size(); i++){
-        if(proxi_readings[i].Value > 0){
-            //distancia desde el sensors
-            Real dis = -log(proxi_readings[i].Value)/10; // metros
+    for(auto r :proxi_readings){
+        if(r.Value > 0){
             //resta de un vector inversamente proporcional a la distacia
-            direction -= CVector2(((-dis/(proxi_limit*2)) +1)*alpha , proxi_readings[i].Angle + rot.z);
+            direction -= CVector2(r.Value*alpha , r.Angle + rot.z);
         }
     }
     return direction;
 }
-
-CVector2 CFootBotLamb::CalculateGradient(CVector2 target){
-    // obtenemos las vectores que representan la distancia y direccion a los obstaculos
-    //desde el centro del robot
-    vector<CVector2> obstacles;
-    for(size_t i = 0; i < proxi_readings.size(); i++){
-        if(proxi_readings[i].Value > 0){
-            //distancia desde el sensors en metros
-            Real dis = -log(proxi_readings[i].Value)/10;
-            dis += robot_radius;
-            obstacles.push_back(CVector2(dis , proxi_readings[i].Angle));
-        }
-    }
-
-
-    //Calculo de la fuerza repulsiva en el centro del robot
-    Real f_rep = 0;
-    if(obstacles.size() > 0){
-        Real min_dis = obstacles[0].Length();
-        for(size_t i = 1; i<obstacles.size(); i++){
-            if(obstacles[1].Length() < min_dis)
-                min_dis = obstacles[1].Length();
-        }
-        f_rep =  alpha * pow((1/min_dis)-(1/proxi_limit),2);
-    }
-    //calculo de la fuerza atractiva y suma de ambas
-    Real f_atr =  beta *(pos-(target)).SquareLength();
-    Real f = f_rep + f_atr;
-
-
-
-    //Calculo de la fuerza repulsiva en varios puntos alrededor del robot(sample_points)
-    Real f_rep_sp[NUM_SAMPLE_POINTS], f_atr_sp[NUM_SAMPLE_POINTS], f_sp[NUM_SAMPLE_POINTS];
-    for (size_t i = 0; i < NUM_SAMPLE_POINTS; i++){
-        f_rep_sp[i] = 0;
-        if(obstacles.size() > 0){
-            Real min_dis = (obstacles[0]-sample_points[i]).Length();
-            for(size_t j = 1; j<obstacles.size(); j++){
-                Real dis = (obstacles[j]-sample_points[i]).Length();
-                if(dis < min_dis)
-                    min_dis = dis;
-            }
-            if(min_dis < proxi_limit)
-                f_rep_sp[i] =  alpha *  pow((1/min_dis)-(1/proxi_limit),2);
-        }
-        //calculo de la fuerza atractiva y suma de ambas
-        f_atr_sp[i] =  beta *(pos+sample_points[i]-(target)).SquareLength();
-        f_sp[i] = f_rep_sp[i] + f_atr_sp[i];
-    }
-
-    CVector2 gradient = CVector2(0,0);
-    for(size_t i = 0; i < NUM_SAMPLE_POINTS ; i++){
-        gradient += (f - f_sp[i])*sample_points_norm[i];
-    }
-
-    return gradient;
-}
+// CVector2 CFootBotLamb::CalculateDirection(CVector2 target){
+//     // inicialmente la direccion es la del objetivo
+//     CVector2 direction = target - pos;
+//     direction.Normalize();
+//     direction *= beta;
+//     //a la direccion inicial se le suman vectores en direccion contraria a los obstaculos
+//     //detectados
+//     for(size_t i = 0; i < proxi_readings.size(); i++){
+//         if(proxi_readings[i].Value > 0){
+//             //distancia desde el sensors
+//             Real dis = -log(proxi_readings[i].Value)/10; // metros
+//             //resta de un vector inversamente proporcional a la distacia
+//             direction -= CVector2(((-dis/(proxi_limit*2)) +1)*alpha , proxi_readings[i].Angle + rot.z);
+//         }
+//     }
+//     return direction;
+// }
 
 /****************************************/
 /****************************************/

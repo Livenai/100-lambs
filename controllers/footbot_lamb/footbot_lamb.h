@@ -118,7 +118,6 @@ private:
     void SendPosition();
     void PollMessages();
 
-    CVector2 CalculateGradient(CVector2 target);
     CVector2 CalculateDirection(CVector2 target);
 
     HPState GetHPState(UInt32 health_stat);

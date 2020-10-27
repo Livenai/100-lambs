@@ -5,10 +5,10 @@
   <!-- * General configuration * -->
   <!-- ************************* -->
   <framework>
-    <system threads="0" />
+    <system threads="2" />
     <experiment length="0"
                 ticks_per_second="10"
-                random_seed="124" />
+                random_seed="0" />
   </framework>
 
   <!-- *************** -->
@@ -29,7 +29,7 @@
             <footbot_proximity implementation="default" show_rays="false" />
             <positioning implementation="default" />
       </sensors>
-      <params velocity="5" ping_interval="0.5" hp_dec_interval="1" alpha="1" beta="1"/>
+      <params velocity="5" ping_interval="0.5" hp_dec_interval="1" alpha="3" beta="1"/>
   </footbot_lamb_controller>
 
   </controllers>
@@ -102,14 +102,7 @@
         <body position="0,0,0" orientation="90,0,0" />
         <controller config="lc"/>
     </foot-bot> -->
-    <!-- <foot-bot id="lamb_1" rab_data_size="26" rab_range="2.5">
-        <body position="1,0,0" orientation="0,0,0" />
-        <controller config="lc"/>
-    </foot-bot> -->
-    <!-- <foot-bot id="lamb_2" rab_data_size="26" rab_range="2.5">
-        <body position="0,-1,0" orientation="0,0,0" />
-        <controller config="lc"/>
-    </foot-bot> -->
+
     <!-- <distribute>
       <position method="uniform" min="-3,-3,0" max="3,3,0" />
       <orientation method="gaussian" mean="0,0,0" std_dev="360,0,0" />
