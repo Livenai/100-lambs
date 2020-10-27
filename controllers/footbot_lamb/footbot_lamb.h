@@ -39,7 +39,7 @@
 #define HP_STAT_CRITIC 100
 
 //en radianes
-#define ANGLE_THRESHOLD 0.07
+#define ANGLE_THRESHOLD 0.0523
 #define NUM_SAMPLE_POINTS 24
 
 /*
@@ -119,9 +119,13 @@ private:
     void PollMessages();
 
     CVector2 CalculateGradient(CVector2 target);
+    CVector2 CalculateDirection(CVector2 target);
 
     HPState GetHPState(UInt32 health_stat);
     bool IsInPlace(CVector2 point);
+
+    CVector3 GetPos();
+    CVector3 GetDirection();
 
     void static SetIdNum(CFootBotLamb* robot);
 

@@ -30,11 +30,11 @@ CFootBotLamb::CFootBotLamb() :
 
 void CFootBotLamb::Init(TConfigurationNode& t_node) {
    // Get sensor/actuator handles
-   wheels_act      = GetActuator<CCI_DifferentialSteeringActuator >("differential_steering");
-   proxi_sens   = GetSensor  <CCI_FootBotProximitySensor >("footbot_proximity"    );
-   pos_sens     = GetSensor  <CCI_PositioningSensor      >("positioning"          );
-   rb_act       = GetActuator<CCI_RangeAndBearingActuator>("range_and_bearing"    );
-   rb_sens      = GetSensor  <CCI_RangeAndBearingSensor  >("range_and_bearing"    );
+   wheels_act   = GetActuator<CCI_DifferentialSteeringActuator >("differential_steering");
+   proxi_sens   = GetSensor  <CCI_FootBotProximitySensor       >("footbot_proximity"    );
+   pos_sens     = GetSensor  <CCI_PositioningSensor            >("positioning"          );
+   rb_act       = GetActuator<CCI_RangeAndBearingActuator      >("range_and_bearing"    );
+   rb_sens      = GetSensor  <CCI_RangeAndBearingSensor        >("range_and_bearing"    );
 
 
    //Configuracion del experimento.
@@ -63,12 +63,19 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    GetNodeAttributeOrDefault(t_node, "hp_dec_interval", hp_interval, hp_interval);
    hp_interval *= ticks_per_second;
 
-   random_pos = CVector2(-3, -3);//FIXME
+//TODO borrar esta caca
+   switch (rng->Uniform(CRange<SInt32>(0,3))) {
+        case 1:
+            water_pos = food_pos;
+        break;
+        case 2:
+            water_pos = bed_pos;
+        break;
+   }
 
    //TODO hardcoded
    proxi_limit = 0.25;
    robot_radius = 0.085036758f;
-   //para el metodo de calcular gradiente
 
    CRadians offset = CRadians::TWO_PI / NUM_SAMPLE_POINTS;
    CVector2 sp(0, robot_radius);
@@ -160,10 +167,10 @@ void CFootBotLamb::ControlStep() {
 }
 
 void CFootBotLamb::TurnLeft()
-{ wheels_act->SetLinearVelocity(- normal_speed, normal_speed); }
+{ wheels_act->SetLinearVelocity(0, normal_speed); }
 
 void CFootBotLamb::TurnRight()
-{ wheels_act->SetLinearVelocity(normal_speed, - normal_speed); }
+{ wheels_act->SetLinearVelocity(normal_speed, 0); }
 
 void CFootBotLamb::MoveForward()
 { wheels_act->SetLinearVelocity(normal_speed, normal_speed); }
@@ -224,7 +231,26 @@ void CFootBotLamb::PollMessages(){
     //     RLOG<<" tiene "<<neightbors.size()<<" vecinos\n";
 }
 
-//Calculo del vector gradiente usando Artificial Potential Fields
+//Calculo del vector de direccion teniendo en cuenta la direccion del objetivo y la de
+//los obstaculos a la vista. Alternativa simplificada a CalculateGradient de APF
+CVector2 CFootBotLamb::CalculateDirection(CVector2 target){
+    // inicialmente la direccion es la del objetivo
+    CVector2 direction = target - pos;
+    direction.Normalize(); //TODO creo que es mejor normalizarlo
+    direction *= beta;
+    //a la direccion inicial se le suman vectores en direccion contraria a los obstaculos
+    //detectados
+    for(size_t i = 0; i < proxi_readings.size(); i++){
+        if(proxi_readings[i].Value > 0){
+            //distancia desde el sensors
+            Real dis = -log(proxi_readings[i].Value)/10; // metros
+            //resta de un vector inversamente proporcional a la distacia
+            direction -= CVector2(((-dis/(proxi_limit*2)) +1)*alpha , proxi_readings[i].Angle + rot.z);
+        }
+    }
+    return direction;
+}
+
 CVector2 CFootBotLamb::CalculateGradient(CVector2 target){
     // obtenemos las vectores que representan la distancia y direccion a los obstaculos
     //desde el centro del robot
@@ -306,6 +332,13 @@ void CFootBotLamb::SetIdNum(CFootBotLamb* robot){
     robot->id_num = id_counter ++;
 }
 
+CVector3 CFootBotLamb::GetPos(){
+    return CVector3(pos.GetX(),pos.GetY(), 0);
+}
+
+CVector3 CFootBotLamb::GetDirection(){
+    return CVector3(0,1,0);
+}
 
 /*******************************************************
 ********************************************************
@@ -322,25 +355,30 @@ CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoTo::update(){
         lamb->Stop();
         return Status::Success;
     }
-    CVector2  v = lamb->CalculateGradient(*target_pos);
-    LOG<<"angle: "<< v.Angle().GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
-    // LOG<<"vector: "<< v<< endl;
-    CRadians angle_to_target = (v.Angle() - lamb->rot.z).SignedNormalize();
-    // LOG<<"angle2: "<< angle_to_target.GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
 
-    // return Status::Running;
-    if(angle_to_target.GetAbsoluteValue() > ANGLE_THRESHOLD){
-        if(angle_to_target < CRadians::ZERO){
+    CVector2  v = lamb->CalculateDirection(*target_pos);
+    CRadians angle_remaining = (v.Angle() - lamb->rot.z).SignedNormalize();
+
+    // LOG<<"vector: "<< v<< endl;
+    LOG<<"Angulo objetivo: "<< v.Angle().GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
+    LOG<<"Aungulo restante: "<< angle_remaining.GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
+    LOG<< v <<endl;
+
+    if(angle_remaining.GetAbsoluteValue() > ANGLE_THRESHOLD){
+        if(angle_remaining < CRadians::ZERO){
             lamb->TurnRight();
+            LOG<<"->"<<endl;
             return Status::Running;
         }
         else {
             lamb->TurnLeft();
+            LOG<<"<-"<<endl;
             return Status::Running;
         }
     }
     else{
         lamb->MoveForward();
+        LOG<<"^"<<endl;
         return Status::Running;
     }
 }
@@ -384,9 +422,9 @@ CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionIsInPlace::update(){
 }
 
 CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionAligned::update(){
-    CRadians angle_to_target = (*target_pos - lamb->pos).Angle() - lamb->rot.z;
+    CRadians angle_remaining = (*target_pos - lamb->pos).Angle() - lamb->rot.z;
 
-    if(angle_to_target.GetAbsoluteValue() > ANGLE_THRESHOLD)
+    if(angle_remaining.GetAbsoluteValue() > ANGLE_THRESHOLD)
         return Status::Failure;
     else
         return Status::Success;

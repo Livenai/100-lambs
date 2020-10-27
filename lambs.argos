@@ -25,11 +25,11 @@
       </actuators>
       <sensors>
             <!-- <radios implementation="default" medium="radios" /> -->
-            <range_and_bearing implementation="medium" medium="rab" show_rays="true"/>
-            <footbot_proximity implementation="default" show_rays="true" />
+            <range_and_bearing implementation="medium" medium="rab" show_rays="false"/>
+            <footbot_proximity implementation="default" show_rays="false" />
             <positioning implementation="default" />
       </sensors>
-      <params velocity="5" ping_interval="0.5" hp_dec_interval="1" alpha="6" beta="2"/>
+      <params velocity="5" ping_interval="0.5" hp_dec_interval="1" alpha="1" beta="1"/>
   </footbot_lamb_controller>
 
   </controllers>
@@ -89,7 +89,7 @@
     </box> -->
     <!-- Find de paredes internas del corral -->
 
-    <!-- <distribute>
+    <distribute>
       <position method="uniform" min="-3,-3,0" max="3,3,0" />
       <orientation method="gaussian" mean="0,0,0" std_dev="360,0,0" />
       <entity quantity="100" max_trials="500">
@@ -97,11 +97,11 @@
           <controller config="lc" />
         </foot-bot>
       </entity>
-    </distribute> -->
-    <foot-bot id="lamb_0" rab_data_size="26" rab_range="2.5" proxi_range="0.25">
+    </distribute>
+    <!-- <foot-bot id="lamb_0" rab_data_size="26" rab_range="2.5" proxi_range="0.25">
         <body position="0,0,0" orientation="90,0,0" />
         <controller config="lc"/>
-    </foot-bot>
+    </foot-bot> -->
     <!-- <foot-bot id="lamb_1" rab_data_size="26" rab_range="2.5">
         <body position="1,0,0" orientation="0,0,0" />
         <controller config="lc"/>
@@ -110,13 +110,24 @@
         <body position="0,-1,0" orientation="0,0,0" />
         <controller config="lc"/>
     </foot-bot> -->
+    <!-- <distribute>
+      <position method="uniform" min="-3,-3,0" max="3,3,0" />
+      <orientation method="gaussian" mean="0,0,0" std_dev="360,0,0" />
+      <entity quantity="100" max_trials="500">
+          <cylinder id="cylinder1" radius="0.085036758" height="0.3" movable="false"/>
+      </entity>
+    </distribute> -->
 
-    <box id="c1" size="1,0.05,0.2" movable="false">
-        <body position="0,0.25,0" orientation="0,0,0" />
+    <!-- <cylinder id="cylinder1" radius="0.085036758" height="0.3" movable="false">
+        <body position="0,0.5, 0" orientation="0,0,0"/>
+    </cylinder> -->
+
+    <!-- <box id="box1" size="1,0.05,0.2" movable="false">
+        <body position="0,0.5,0" orientation="-10,0,0" />
     </box>
-    <box id="c2" size="1,0.05,0.2"  movable="false">
+    <box id="box2" size="1,0.05,0.2"  movable="false">
         <body position="0.25,0,0" orientation="110,0,0" />
-    </box>
+    </box> -->
 
   </arena>
 
@@ -150,9 +161,9 @@
                       label="id_qtuser_functions" />
 
       <camera>
-          <placement idx="2" position="0,0,4.6" look_at="0,0,0" up="0,1,0" lens_focal_length="20" />
+          <placement idx="0" position="0,0,4.6" look_at="0,0,0" up="0,1,0" lens_focal_length="20" />
           <placement idx="1" position="-2.18892,-0.137373,1.24533" look_at="-1.27845,-0.0728067,0.836844" up="0.407464,0.0288953,0.912764" lens_focal_length="20" />
-          <placement idx="0" position="0,0,0.8" look_at="0,0,0" up="0,1,0" lens_focal_length="20" />
+          <placement idx="1" position="0,0,0.8" look_at="0,0,0" up="0,1,0" lens_focal_length="20" />
       </camera>
     </qt-opengl>
   </visualization>
