@@ -15,11 +15,13 @@ CFootBotLamb::CFootBotLamb() :
     pos_sens(NULL),
     rb_sens(NULL),
     rb_act(NULL),
-    normal_speed(2.5f),
+    speed(2.5f),
+    rot_speed(2.5f),
     alpha(2),
     beta(0.5),
     ping_interval(3),
-    hp_interval(1)
+    hp_interval(1),
+    bt_interval(0.5)
     {
         CFootBotLamb::SetIdNum(this);
         rng = CRandom::CreateRNG( "argos" );
@@ -29,6 +31,7 @@ CFootBotLamb::CFootBotLamb() :
 /****************************************/
 
 void CFootBotLamb::Init(TConfigurationNode& t_node) {
+
    // Get sensor/actuator handles
    wheels_act   = GetActuator<CCI_DifferentialSteeringActuator >("differential_steering");
    proxi_sens   = GetSensor  <CCI_FootBotProximitySensor       >("footbot_proximity"    );
@@ -55,13 +58,16 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    GetNodeAttribute(arena_conf, "bed_pos", bed_pos);
 
    // Configuracion del controller
-   GetNodeAttributeOrDefault(t_node, "velocity", normal_speed, normal_speed);
+   GetNodeAttributeOrDefault(t_node, "linear_speed", speed, speed);
+   GetNodeAttributeOrDefault(t_node, "rot_speed", rot_speed, rot_speed);
    GetNodeAttributeOrDefault(t_node, "alpha", alpha, alpha);
    GetNodeAttributeOrDefault(t_node, "beta", beta, beta);
    GetNodeAttributeOrDefault(t_node, "ping_interval", ping_interval, ping_interval);
    ping_interval *= ticks_per_second;
    GetNodeAttributeOrDefault(t_node, "hp_dec_interval", hp_interval, hp_interval);
    hp_interval *= ticks_per_second;
+   GetNodeAttributeOrDefault(t_node, "bt_interval", bt_interval, bt_interval);
+   bt_interval *= ticks_per_second;
 
 //TODO borrar esta caca
    switch (rng->Uniform(CRange<SInt32>(0,3))) {
@@ -120,6 +126,7 @@ void CFootBotLamb::Reset() {
     // rb_act->ClearData();
     ping_timer = ping_interval;
     hp_timer = hp_interval;
+    bt_timer = (id_num%(UInt8)bt_interval)+1;
 
     neightbors.clear();
     water = HP_STAT_BAD;
@@ -140,7 +147,11 @@ void CFootBotLamb::ControlStep() {
     proxi_readings = proxi_sens->GetReadings();
 
     //actualizacion del arbol de decision
-    bt.update();
+    if(--bt_timer <=0){
+        bt.update();
+        bt_timer = bt_interval;
+        // LOG <<id_num<<endl;
+    }
 
     //decremento de los HP
     if(--hp_timer <=0){
@@ -167,13 +178,13 @@ void CFootBotLamb::ControlStep() {
 }
 
 void CFootBotLamb::TurnLeft()
-{ wheels_act->SetLinearVelocity(0, normal_speed); }
+{ wheels_act->SetLinearVelocity(speed/2, speed); }
 
 void CFootBotLamb::TurnRight()
-{ wheels_act->SetLinearVelocity(normal_speed, 0); }
+{ wheels_act->SetLinearVelocity(speed, speed/2); }
 
 void CFootBotLamb::MoveForward()
-{ wheels_act->SetLinearVelocity(normal_speed, normal_speed); }
+{ wheels_act->SetLinearVelocity(speed, speed); }
 
 void CFootBotLamb::Stop()
 { wheels_act->SetLinearVelocity(0.0f, 0.0f); }
@@ -248,23 +259,6 @@ CVector2 CFootBotLamb::CalculateDirection(CVector2 target){
     }
     return direction;
 }
-// CVector2 CFootBotLamb::CalculateDirection(CVector2 target){
-//     // inicialmente la direccion es la del objetivo
-//     CVector2 direction = target - pos;
-//     direction.Normalize();
-//     direction *= beta;
-//     //a la direccion inicial se le suman vectores en direccion contraria a los obstaculos
-//     //detectados
-//     for(size_t i = 0; i < proxi_readings.size(); i++){
-//         if(proxi_readings[i].Value > 0){
-//             //distancia desde el sensors
-//             Real dis = -log(proxi_readings[i].Value)/10; // metros
-//             //resta de un vector inversamente proporcional a la distacia
-//             direction -= CVector2(((-dis/(proxi_limit*2)) +1)*alpha , proxi_readings[i].Angle + rot.z);
-//         }
-//     }
-//     return direction;
-// }
 
 /****************************************/
 /****************************************/
@@ -288,6 +282,7 @@ bool CFootBotLamb::IsInPlace(CVector2 point){
 
 void CFootBotLamb::SetIdNum(CFootBotLamb* robot){
     robot->id_num = id_counter ++;
+
 }
 
 CVector3 CFootBotLamb::GetPos(){
@@ -296,6 +291,10 @@ CVector3 CFootBotLamb::GetPos(){
 
 CVector3 CFootBotLamb::GetDirection(){
     return CVector3(0,1,0);
+}
+
+void CFootBotLamb::Destroy(){
+    CFootBotLamb::id_counter --;
 }
 
 /*******************************************************
@@ -317,26 +316,25 @@ CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoTo::update(){
     CVector2  v = lamb->CalculateDirection(*target_pos);
     CRadians angle_remaining = (v.Angle() - lamb->rot.z).SignedNormalize();
 
-    // LOG<<"vector: "<< v<< endl;
     LOG<<"Angulo objetivo: "<< v.Angle().GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
     LOG<<"Aungulo restante: "<< angle_remaining.GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
-    LOG<< v <<endl;
+    LOG<<"vector: "<< v<< endl;
 
     if(angle_remaining.GetAbsoluteValue() > ANGLE_THRESHOLD){
         if(angle_remaining < CRadians::ZERO){
             lamb->TurnRight();
-            LOG<<"->"<<endl;
+            // LOG<<"->"<<endl;
             return Status::Running;
         }
         else {
             lamb->TurnLeft();
-            LOG<<"<-"<<endl;
+            // LOG<<"<-"<<endl;
             return Status::Running;
         }
     }
     else{
         lamb->MoveForward();
-        LOG<<"^"<<endl;
+        // LOG<<"^"<<endl;
         return Status::Running;
     }
 }

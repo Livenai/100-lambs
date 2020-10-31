@@ -101,7 +101,7 @@ public:
     * so the function could have been omitted. It's here just for
     * completeness.
     */
-    virtual void Destroy() {}
+    virtual void Destroy();
 
 
     // activa o desactiva los prints
@@ -147,15 +147,15 @@ private:
     CCI_RangeAndBearingSensor *rb_sens;
     CCI_RangeAndBearingActuator *rb_act;
 
-    Real normal_speed;
+    Real speed, rot_speed;
 
     //parametros de para Artificial Potential Fields
     Real alpha, beta;
 
 
     //variables para calcular cuando se hace ping o se decrementan los HP(health points)
-    Real ping_interval, hp_interval;
-    Real ping_timer, hp_timer;
+    Real ping_interval, hp_interval, bt_interval;
+    Real ping_timer, hp_timer, bt_timer;
 
     UInt8 mess_count;
     bool clear_message;//bandera
