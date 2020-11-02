@@ -1,6 +1,5 @@
 #include "qtopengl_trough.h"
 #include <argos3/core/utility/math/vector2.h>
-#include <argos3/plugins/simulator/entities/led_equipped_entity.h>
 #include "trough_entity.h"
 #include <argos3/plugins/simulator/visualizations/qt-opengl/qtopengl_widget.h>
 
@@ -9,7 +8,6 @@ namespace argos {
    /****************************************/
    /****************************************/
 
-   static const Real LED_RADIUS     = 0.01f;
    const GLfloat MOVABLE_COLOR[]    = { 1.0f, 0.0f, 0.0f, 1.0f };
    const GLfloat NONMOVABLE_COLOR[] = { 0.7f, 0.7f, 0.7f, 1.0f };
    const GLfloat SPECULAR[]         = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -23,18 +21,11 @@ namespace argos {
        m_unVertices(20){
 
        /* Reserve the needed display lists */
-       m_unBaseList = glGenLists(2);
+       m_unBaseList = glGenLists(1);
        m_unBodyList = m_unBaseList;
-       m_unLEDList = m_unBaseList + 1;
 
-       /* Make body list */
        glNewList(m_unBodyList, GL_COMPILE);
        MakeBody();
-       glEndList();
-
-       /* Make LED list */
-       glNewList(m_unLEDList, GL_COMPILE);
-       MakeLED();
        glEndList();
 
     }
@@ -43,41 +34,12 @@ namespace argos {
    /****************************************/
 
    CQTOpenGLTrough::~CQTOpenGLTrough() {
-      glDeleteLists(m_unBaseList, 2);
+      glDeleteLists(m_unBaseList, 1);
    }
 
    /****************************************/
    /****************************************/
 
-   void CQTOpenGLTrough::DrawLEDs(CTroughEntity& c_entity) {
-      /* Draw the LEDs */
-      GLfloat pfColor[]           = {   0.0f, 0.0f, 0.0f, 1.0f };
-      const GLfloat pfSpecular[]  = {   0.0f, 0.0f, 0.0f, 1.0f };
-      const GLfloat pfShininess[] = { 100.0f                   };
-      const GLfloat pfEmission[]  = {   0.0f, 0.0f, 0.0f, 1.0f };
-      glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, pfSpecular);
-      glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, pfShininess);
-      glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, pfEmission);
-      CLEDEquippedEntity& cLEDEquippedEntity = c_entity.GetLEDEquippedEntity();
-      for(UInt32 i = 0; i < cLEDEquippedEntity.GetLEDs().size(); ++i) {
-         glPushMatrix();
-         /* Set the material */
-         const CColor& cColor = cLEDEquippedEntity.GetLED(i).GetColor();
-         pfColor[0] = cColor.GetRed()   / 255.0f;
-         pfColor[1] = cColor.GetGreen() / 255.0f;
-         pfColor[2] = cColor.GetBlue()  / 255.0f;
-         glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, pfColor);
-         /* Perform rototranslation */
-         const CVector3& cPosition = cLEDEquippedEntity.GetLEDOffset(i);
-         glTranslatef(cPosition.GetX(), cPosition.GetY(), cPosition.GetZ());
-         /* Draw the LED */
-         glCallList(m_unLEDList);
-         glPopMatrix();
-      }
-   }
-
-   /****************************************/
-   /****************************************/
 
    void CQTOpenGLTrough::Draw(const CTroughEntity& c_entity) {
       /* Draw the body */
@@ -159,42 +121,6 @@ namespace argos {
    /****************************************/
    /****************************************/
 
-   void CQTOpenGLTrough::MakeLED() {
-      CVector3 cNormal, cPoint;
-      CRadians cSlice(CRadians::TWO_PI / m_unVertices);
-
-      glBegin(GL_TRIANGLE_STRIP);
-      for(CRadians cInclination; cInclination <= CRadians::PI; cInclination += cSlice) {
-         for(CRadians cAzimuth; cAzimuth <= CRadians::TWO_PI; cAzimuth += cSlice) {
-
-            cNormal.FromSphericalCoords(1.0f, cInclination, cAzimuth);
-            cPoint = LED_RADIUS * cNormal;
-            glNormal3f(cNormal.GetX(), cNormal.GetY(), cNormal.GetZ());
-            glVertex3f(cPoint.GetX(), cPoint.GetY(), cPoint.GetZ());
-
-            cNormal.FromSphericalCoords(1.0f, cInclination + cSlice, cAzimuth);
-            cPoint = LED_RADIUS * cNormal;
-            glNormal3f(cNormal.GetX(), cNormal.GetY(), cNormal.GetZ());
-            glVertex3f(cPoint.GetX(), cPoint.GetY(), cPoint.GetZ());
-
-            cNormal.FromSphericalCoords(1.0f, cInclination, cAzimuth + cSlice);
-            cPoint = LED_RADIUS * cNormal;
-            glNormal3f(cNormal.GetX(), cNormal.GetY(), cNormal.GetZ());
-            glVertex3f(cPoint.GetX(), cPoint.GetY(), cPoint.GetZ());
-
-            cNormal.FromSphericalCoords(1.0f, cInclination + cSlice, cAzimuth + cSlice);
-            cPoint = LED_RADIUS * cNormal;
-            glNormal3f(cNormal.GetX(), cNormal.GetY(), cNormal.GetZ());
-            glVertex3f(cPoint.GetX(), cPoint.GetY(), cPoint.GetZ());
-
-         }
-      }
-      glEnd();
-   }
-
-   /****************************************/
-   /****************************************/
-
    class CQTOpenGLOperationDrawTroughNormal : public CQTOpenGLOperationDrawNormal {
    public:
       void ApplyTo(CQTOpenGLWidget& c_visualization,
@@ -202,7 +128,6 @@ namespace argos {
          static CQTOpenGLTrough m_cModel;
          c_visualization.DrawEntity(c_entity.GetEmbodiedEntity());
          m_cModel.Draw(c_entity);
-         m_cModel.DrawLEDs(c_entity);
       }
    };
 

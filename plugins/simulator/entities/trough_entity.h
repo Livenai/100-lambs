@@ -7,99 +7,64 @@ namespace argos {
 
 #include <argos3/core/simulator/entity/embodied_entity.h>
 #include <argos3/core/simulator/entity/composable_entity.h>
-#include <argos3/plugins/simulator/entities/led_equipped_entity.h>
+#include <string>
 
 namespace argos {
 
-   class CTroughEntity : public CComposableEntity {
+    enum Trough_type{WATER, FOOD};
+class CTroughEntity : public CComposableEntity {
+public:
 
-   public:
+    ENABLE_VTABLE();
 
-      ENABLE_VTABLE();
+    CTroughEntity();
 
-      CTroughEntity();
+    virtual void Init(TConfigurationNode& t_tree);
+    virtual void Reset();
 
-      CTroughEntity(const std::string& str_id,
-                 const CVector3& c_position,
-                 const CQuaternion& c_orientation,
-                 bool b_movable,
-                 const CVector3& c_size,
-                 Real f_mass = 1.0f);
 
-      virtual void Init(TConfigurationNode& t_tree);
-      virtual void Reset();
+    inline CEmbodiedEntity& GetEmbodiedEntity() {
+        return *m_pcEmbodiedEntity;
+    }
 
-      /*
-       * Enables the LEDs for this entity.
-       * Adds the LED equipped entity to the given medium.
-       * If you don't call this method, the LEDs added with
-       * CTroughEntity::AddLED() won't be updated correctly.
-       * @param c_medium The medium to which the LEDs must be associated.
-       * @see CTroughEntity::AddLED()
-       */
-      void EnableLEDs(CLEDMedium& c_medium);
+    inline const CEmbodiedEntity& GetEmbodiedEntity() const {
+        return *m_pcEmbodiedEntity;
+    }
 
-      /*
-       * Disables the LEDs for this entity.
-       */
-      void DisableLEDs();
 
-      /**
-       * Adds an LED to this entity.
-       * For the LEDs to be updated correctly, you must first call
-       * CTroughEntity::EnableLEDs().
-       * @param c_offset The position of the LED wrt the origin anchor.
-       * @param c_color The color of the LED.
-       * @see CTroughEntity::EnableLEDs()
-       */
-      void AddLED(const CVector3& c_offset,
-                  const CColor& c_color = CColor::BLACK);
+    inline Trough_type GetType(){
+         return trough_type;
+     }
 
-      inline CEmbodiedEntity& GetEmbodiedEntity() {
-         return *m_pcEmbodiedEntity;
-      }
+     inline const CVector3& GetSize() const {
+        return m_cSize;
+     }
 
-      inline const CEmbodiedEntity& GetEmbodiedEntity() const {
-         return *m_pcEmbodiedEntity;
-      }
+     inline void SetSize(const CVector3& c_size) {
+        m_cSize = c_size;
+     }
 
-      inline CLEDEquippedEntity& GetLEDEquippedEntity() {
-         return *m_pcLEDEquippedEntity;
-      }
+    inline Real GetScale() {
+        return scale;
+    }
 
-      inline const CLEDEquippedEntity& GetLEDEquippedEntity() const {
-         return *m_pcLEDEquippedEntity;
-      }
+    inline void SetScale(Real c_scale) {
+        scale = c_scale;
+    }
 
-      inline const CVector3& GetSize() const {
-         return m_cSize;
-      }
 
-      inline void SetSize(const CVector3& c_size) {
-         m_cSize = c_size;
-      }
+    virtual std::string GetTypeDescription() const {
+        return "trough";
+    }
 
-      inline Real GetMass() const {
-         return m_fMass;
-      }
+private:
+    CEmbodiedEntity*    m_pcEmbodiedEntity;
+    CVector3            m_cSize;
+    Real                m_fMass;
+    Real                scale;
+    Trough_type trough_type;
 
-      inline void SetMass(Real f_mass) {
-         m_fMass = f_mass;
-      }
-
-      virtual std::string GetTypeDescription() const {
-         return "trough";
-      }
-
-   private:
-
-      CEmbodiedEntity*    m_pcEmbodiedEntity;
-      CLEDEquippedEntity* m_pcLEDEquippedEntity;
-      CVector3            m_cSize;
-      Real                m_fMass;
-      CLEDMedium*         m_pcLEDMedium;
-
-   };
+};
 
 }
 

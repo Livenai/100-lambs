@@ -48,9 +48,6 @@
  */
 using namespace argos;
 using namespace std;
-/*
- * A controller is simply an implementation of the CCI_Controller class.
- */
  enum HPState {GOOD, BAD, CRITIC};
 
  struct Neightbor_Info{
@@ -65,6 +62,9 @@ struct EulerRotation{
         x = y = z = CRadians::ZERO;
     }
 };
+/*
+* A controller is simply an implementation of the CCI_Controller class.
+*/
 class CFootBotLamb : public CCI_Controller {
 
 public:

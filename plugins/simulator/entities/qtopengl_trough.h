@@ -22,19 +22,16 @@ namespace argos {
 
       virtual ~CQTOpenGLTrough();
 
-      virtual void DrawLEDs(CTroughEntity& c_entity);
       virtual void Draw(const CTroughEntity& c_entity);
 
    private:
 
       void MakeBody();
-      void MakeLED();
 
    private:
 
       GLuint m_unBaseList;
       GLuint m_unBodyList;
-      GLuint m_unLEDList;
       GLuint m_unVertices;
 
    };
