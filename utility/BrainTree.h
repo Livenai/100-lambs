@@ -63,10 +63,16 @@ class Composite : public Node
 public:
     Composite() : it(children.begin()) {}
     virtual ~Composite() {}
-    
+
+    virtual void terminate(Status s) {
+        if(s == Status::Running)
+            (*it)->terminate(s);
+    }
+
+
     void addChild(Node::Ptr child) { children.push_back(child); }
     bool hasChildren() const { return !children.empty(); }
-    
+
 protected:
     std::vector<Node::Ptr> children;
     std::vector<Node::Ptr>::iterator it;
@@ -79,7 +85,7 @@ public:
 
     void setChild(Node::Ptr node) { child = node; }
     bool hasChild() const { return child != nullptr; }
-    
+
 protected:
     Node::Ptr child = nullptr;
 };
@@ -153,7 +159,7 @@ public:
     Leaf() {}
     virtual ~Leaf() {}
     Leaf(Blackboard::Ptr blackboard) : blackboard(blackboard) {}
-    
+
     virtual Status update() = 0;
 
 protected:
@@ -165,12 +171,12 @@ class BehaviorTree : public Node
 public:
     BehaviorTree() : blackboard(std::make_shared<Blackboard>()) {}
     BehaviorTree(const Node::Ptr &rootNode) : BehaviorTree() { root = rootNode; }
-    
+
     Status update() { return root->tick(); }
-    
+
     void setRoot(const Node::Ptr &node) { root = node; }
     Blackboard::Ptr getBlackboard() const { return blackboard; }
-    
+
 private:
     Node::Ptr root = nullptr;
     Blackboard::Ptr blackboard = nullptr;
@@ -565,6 +571,25 @@ public:
                 return Status::Success;
             }
         }
+    }
+};
+
+//Selector Activo, en cada ciclo que se ejecuta comprueba todas las ramas en orden y
+//si puede ejecutar alguna anterior a la que se este ejecutando ahora cancela la actual
+class ActiveSelector : public Selector
+{
+public:
+    Status update() override
+    {
+        assert(hasChildren() && "Composite has no children");
+
+        auto prev = it;
+        it = children.begin(); //Selector::initialize();
+        auto status = Selector::update();
+        if (it != children.end() && it != prev)
+            (*prev)->terminate(status);
+
+        return status;
     }
 };
 

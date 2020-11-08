@@ -32,7 +32,7 @@ public:
     }
 
 
-    inline Trough_type GetType(){
+    inline const Trough_type GetType() const{
          return trough_type;
      }
 

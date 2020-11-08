@@ -8,8 +8,8 @@ namespace argos {
    /****************************************/
    /****************************************/
 
-   const GLfloat MOVABLE_COLOR[]    = { 1.0f, 0.0f, 0.0f, 1.0f };
-   const GLfloat NONMOVABLE_COLOR[] = { 0.7f, 0.7f, 0.7f, 1.0f };
+   const GLfloat WATER_COLOR[]    = { 0.49f, 0.9f, 0.96f, 1.0f };
+   const GLfloat FOOD_COLOR[] = { 0.46f, 0.42f, 0.03f, 1.0f };
    const GLfloat SPECULAR[]         = { 0.0f, 0.0f, 0.0f, 1.0f };
    const GLfloat SHININESS[]        = { 0.0f                   };
    const GLfloat EMISSION[]         = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -43,11 +43,11 @@ namespace argos {
 
    void CQTOpenGLTrough::Draw(const CTroughEntity& c_entity) {
       /* Draw the body */
-      if(c_entity.GetEmbodiedEntity().IsMovable()) {
-         glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, MOVABLE_COLOR);
+      if(c_entity.GetType() == WATER) {
+         glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, WATER_COLOR);
       }
       else {
-         glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, NONMOVABLE_COLOR);
+         glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, FOOD_COLOR);
       }
       glPushMatrix();
       glScalef(c_entity.GetSize().GetX(), c_entity.GetSize().GetY(), c_entity.GetSize().GetZ());

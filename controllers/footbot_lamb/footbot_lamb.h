@@ -48,7 +48,6 @@
  */
 using namespace argos;
 using namespace std;
- enum HPState {GOOD, BAD, CRITIC};
 
  struct Neightbor_Info{
      CVector2 pos;
@@ -103,9 +102,7 @@ public:
     */
     virtual void Destroy();
 
-
-    // activa o desactiva los prints
-    bool ENABLE_DEBUG = false;
+    // void static SetTroughs();
 
 private:
 
@@ -119,9 +116,11 @@ private:
     void PollMessages();
 
     CVector2 CalculateDirection(CVector2 target);
+    void GoTo(CVector2 target);
 
-    HPState GetHPState(UInt32 health_stat);
+    void UpdatePriority();
     bool IsInPlace(CVector2 point);
+    CVector2 GetClosestPoint(vector<CVector2> *targets);
 
     CVector3 GetPos();
     CVector3 GetDirection();
@@ -137,6 +136,9 @@ private:
     static UInt8 id_counter;
     UInt8 id_num;
 
+    static vector<CVector2> water_troughs;
+    static vector<CVector2> food_troughs;
+
     /* Pointer to the differential steering actuator */
     CCI_DifferentialSteeringActuator *wheels_act;
     /* Pointer to the foot-bot proximity sensor */
@@ -147,7 +149,7 @@ private:
     CCI_RangeAndBearingSensor *rb_sens;
     CCI_RangeAndBearingActuator *rb_act;
 
-    Real speed, rot_speed;
+    Real speed;
 
     //parametros de para Artificial Potential Fields
     Real alpha, beta;
@@ -161,21 +163,19 @@ private:
     bool clear_message;//bandera
     std::map<UInt8,Neightbor_Info> neightbors;
 
-    CVector2 pos;
+    CVector2 pos, target;
     EulerRotation rot;
 
     //Puntos de salud o HP
-    UInt32 energy, food, water;
+    UInt32 rest, food, water;
+    string priority;
 
-    CVector2 water_pos, food_pos, bed_pos, random_pos;
     Real radius;
 
     BrainTree::BehaviorTree bt;
 
     /****************************************************/
-    //TODO comentar
-    vector<CVector2> sample_points;
-    vector<CVector2> sample_points_norm;
+
     CCI_PositioningSensor::SReading pos_readings;
     CCI_FootBotProximitySensor::TReadings proxi_readings;
 
@@ -184,82 +184,58 @@ private:
     class NodeFootBot: public BrainTree::Node{
     protected:
         CFootBotLamb *lamb;
-        UInt32 *health_stat;
-        CVector2 *target_pos;
     public:
-        NodeFootBot(CFootBotLamb *lamb, string const  health_stat):Node(){
+        NodeFootBot(CFootBotLamb *lamb):Node(){
             this->lamb = lamb;
-            if (health_stat == "water"){
-                this->health_stat = &(lamb->water);
-                target_pos = &(lamb->water_pos);
-            }
-            else if(health_stat == "food"){
-                this->health_stat = &(lamb->food);
-                target_pos = &(lamb->food_pos);
-            }
-            else if(health_stat == "energy"){
-                this->health_stat = &(lamb->energy);
-                target_pos = &(lamb->bed_pos);
-            }
-            else if(health_stat == "random"){
-                this->health_stat = NULL;
-                target_pos = &(lamb->random_pos);
-            }
-
         }
     };
 
-
-    class IncreaseHP : public NodeFootBot{
+    //TODO Quiza se puedan definir las clases con un MACRO y quedaria
+    //más limpio
+    class NeedWater :
+     public NodeFootBot{
     public:
-        IncreaseHP(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        NeedWater(CFootBotLamb * lamb):NodeFootBot(lamb){}
         Status update() override;
     };
 
-    class GoTo: public NodeFootBot{
+    class NeedFood :
+     public NodeFootBot{
     public:
-        GoTo(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        NeedFood(CFootBotLamb * lamb):NodeFootBot(lamb){}
         Status update() override;
     };
 
-    class Advance: public NodeFootBot{
+    class NeedRest :
+     public NodeFootBot{
     public:
-        Advance(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        NeedRest(CFootBotLamb * lamb):NodeFootBot(lamb){}
         Status update() override;
     };
 
-    class SelectRandomPos: public NodeFootBot{
+    class CanDrink:
+     public NodeFootBot{
     public:
-        SelectRandomPos(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        CanDrink(CFootBotLamb * lamb):NodeFootBot(lamb){}
         Status update() override;
     };
 
-    class ConditionDepletion : public NodeFootBot{
+    class GoToWater :
+     public NodeFootBot{
     public:
-        ConditionDepletion(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        GoToWater(CFootBotLamb * lamb):NodeFootBot(lamb){}
         Status update() override;
+        void terminate(Status s) override;
     };
 
-
-    class ConditionIsInPlace : public NodeFootBot{
+    class Drink :
+     public NodeFootBot{
     public:
-        ConditionIsInPlace(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
-        Status update() override;
-    };
-
-
-    class ConditionAligned: public NodeFootBot{
-    public:
-        ConditionAligned(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
+        Drink(CFootBotLamb * lamb):NodeFootBot(lamb){}
         Status update() override;
     };
 
 
-    class PrintNode : public NodeFootBot{
-    public:
-        PrintNode(CFootBotLamb * lamb, string health_stat):NodeFootBot(lamb, health_stat){}
-        Status update() override;
-    };
 
 };
 

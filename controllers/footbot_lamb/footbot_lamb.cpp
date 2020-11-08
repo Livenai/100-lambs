@@ -1,8 +1,5 @@
-/* Include the controller definition */
 #include "footbot_lamb.h"
-/* Function definitions for XML parsing */
 #include <argos3/core/utility/configuration/argos_configuration.h>
-/* 2D vector definition */
 #include <argos3/core/utility/math/vector2.h>
 
 /****************************************/
@@ -16,7 +13,6 @@ CFootBotLamb::CFootBotLamb() :
     rb_sens(NULL),
     rb_act(NULL),
     speed(2.5f),
-    rot_speed(2.5f),
     alpha(2),
     beta(0.5),
     ping_interval(3),
@@ -25,6 +21,8 @@ CFootBotLamb::CFootBotLamb() :
     {
         CFootBotLamb::SetIdNum(this);
         rng = CRandom::CreateRNG( "argos" );
+        water_troughs = vector<CVector2>();
+        food_troughs = vector<CVector2>();
 }
 
 /****************************************/
@@ -53,13 +51,10 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    TConfigurationNode arena_conf = GetNode(CSimulator::GetInstance().GetConfigurationRoot(), "arena");
    //TODO comprobar valores de los parametros
    GetNodeAttribute(arena_conf, "radius", radius);
-   GetNodeAttribute(arena_conf, "water_pos", water_pos);
-   GetNodeAttribute(arena_conf, "food_pos", food_pos);
-   GetNodeAttribute(arena_conf, "bed_pos", bed_pos);
+   // GetNodeAttribute(arena_conf, "bed_pos", bed_pos);
 
    // Configuracion del controller
    GetNodeAttributeOrDefault(t_node, "linear_speed", speed, speed);
-   GetNodeAttributeOrDefault(t_node, "rot_speed", rot_speed, rot_speed);
    GetNodeAttributeOrDefault(t_node, "alpha", alpha, alpha);
    GetNodeAttributeOrDefault(t_node, "beta", beta, beta);
    GetNodeAttributeOrDefault(t_node, "ping_interval", ping_interval, ping_interval);
@@ -69,48 +64,24 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    GetNodeAttributeOrDefault(t_node, "bt_interval", bt_interval, bt_interval);
    bt_interval *= ticks_per_second;
 
-//TODO borrar esta caca
-   switch (rng->Uniform(CRange<SInt32>(0,3))) {
-        case 1:
-            water_pos = food_pos;
-        break;
-        case 2:
-            water_pos = bed_pos;
-        break;
-   }
 
-   //TODO hardcoded
-   proxi_limit = 0.25;
-   robot_radius = 0.085036758f;
-
-   CRadians offset = CRadians::TWO_PI / NUM_SAMPLE_POINTS;
-   CVector2 sp(0, robot_radius);
-   for(size_t i = 0; i < NUM_SAMPLE_POINTS; i++){
-       sample_points.push_back(sp);
-       sample_points_norm.push_back(sp);
-       sample_points_norm[i].Normalize();
-       sp.Rotate(offset);
-   }
+   //TODO hardcoded, ya no lo uso
+   // proxi_limit = 0.25;
+   // robot_radius = 0.085036758f;
 
 
    bt = BrainTree::Builder()
                     .composite<BrainTree::Selector>()
                         // Secuencia para beber
                         .composite<BrainTree::Sequence>()
-                            .leaf<ConditionDepletion>(this, "water")
-                            .composite<BrainTree::Selector>()
-                                .composite<BrainTree::Sequence>()//Está en el sitio?
-                                    .leaf<ConditionIsInPlace>(this, "water")
-                                    .leaf<IncreaseHP>(this, "water")
+                            .leaf<NeedWater>(this) //Tiene sed?
+                            .composite<BrainTree::ActiveSelector>()
+                                .composite<BrainTree::Sequence>()
+                                    .leaf<CanDrink>(this)//esta al lado del bebedero
+                                    .leaf<Drink>(this)
                                 .end()
                                 .composite<BrainTree::Sequence>()//Ir al sitio
-                                    .leaf<GoTo>(this, "water")
-                                    // .composite<BrainTree::Selector>()
-                                    //     .leaf<ConditionAligned>(this, "water")
-                                    //     .leaf<Aligne>(this, "water")
-                                    // .end()
-                                    // .leaf<Advance>(this, "water")
-                                    // .leaf<IncreaseHP>(this, "water")
+                                    .leaf<GoToWater>(this)
                                 .end()
                             .end()
                         .end()//Fin de sequencia para beber
@@ -119,7 +90,7 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
 
    Reset();
 }
-//TODO el reinicio no funciona correctamente siempre, es por el arbol
+//TODO habría que reiniciar el arbol tambien
 void CFootBotLamb::Reset() {
     mess_count = 0;
     clear_message = false;
@@ -132,7 +103,7 @@ void CFootBotLamb::Reset() {
     water = HP_STAT_BAD;
     // water = HP_STAT_FULL; //FIXME
     food = HP_STAT_FULL;
-    energy = HP_STAT_FULL;
+    rest = HP_STAT_FULL;
 }
 
 /****************************************/
@@ -148,6 +119,7 @@ void CFootBotLamb::ControlStep() {
 
     //actualizacion del arbol de decision
     if(--bt_timer <=0){
+        UpdatePriority();
         bt.update();
         bt_timer = bt_interval;
         // LOG <<id_num<<endl;
@@ -157,11 +129,9 @@ void CFootBotLamb::ControlStep() {
     if(--hp_timer <=0){
         if (water > 0)  water --;
         if (food > 0)  food --;
-        if (energy > 0)  energy --;
+        if (rest > 0)  rest --;
         hp_timer = hp_interval;
     }
-
-    // RLOG << food << endl;
 
     //FIXME pone a 0 el mensaje de salida, es un apaño,
     //no soy capaz de que deje de enviarse en cada step
@@ -204,7 +174,7 @@ void CFootBotLamb::Ping(){
 //Prepara el mensaje para enviar la posición actual cuando acabe el control step
 void CFootBotLamb::SendPosition(){
 
-    CByteArray mess_data; //TODO alojamiento dinamico de memoria
+    CByteArray mess_data;
     mess_data << id_num;
     mess_data << (UInt8) CODE_PING_REPLY;
     mess_data << pos.GetX();
@@ -218,7 +188,7 @@ void CFootBotLamb::SendPosition(){
 void CFootBotLamb::PollMessages(){
     CCI_RangeAndBearingSensor::TReadings messages = rb_sens->GetReadings();
     CCI_RangeAndBearingSensor::TReadings::iterator m;
-    for (m = messages.begin() ; m != messages.end(); ++m){
+    for(m = messages.begin() ; m != messages.end(); ++m){
         switch (m->Data[1]) {
             case CODE_PING:
                 SendPosition();
@@ -260,30 +230,71 @@ CVector2 CFootBotLamb::CalculateDirection(CVector2 target){
     return direction;
 }
 
+
+void CFootBotLamb::GoTo(CVector2 target) {
+    CVector2  v = CalculateDirection(target);
+    CRadians angle_remaining = (v.Angle() - rot.z).SignedNormalize();
+
+    // RLOG<<"Angulo objetivo: "<< v.Angle().GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
+    // RLOG<<"Aungulo restante: "<< angle_remaining.GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
+    // RLOG<<"vector: "<< v<< endl;
+
+    if(angle_remaining.GetAbsoluteValue() > ANGLE_THRESHOLD){
+        if(angle_remaining < CRadians::ZERO)
+            TurnRight();
+        else
+            TurnLeft();
+    }
+    else
+        MoveForward();
+}
+
 /****************************************/
 /****************************************/
 
-HPState CFootBotLamb::GetHPState(UInt32 health_stat){
-    if (health_stat > HP_STAT_BAD)
-        return HPState::GOOD;
-    else if (health_stat > HP_STAT_CRITIC)
-        return HPState::BAD;
+void CFootBotLamb::UpdatePriority(){
+    if(water <= HP_STAT_CRITIC)
+        priority = "water";
+    else if(food <= HP_STAT_CRITIC)
+        priority = "food";
+    else if(rest <= HP_STAT_CRITIC)
+        priority = "rest";
+    else if(water <= HP_STAT_BAD)
+        priority = "water";
+    else if(food <= HP_STAT_BAD)
+        priority = "food";
+    else if(rest <= HP_STAT_BAD)
+        priority = "rest";
     else
-        return HPState::CRITIC;
+        priority = "none";
 }
 
-bool CFootBotLamb::IsInPlace(CVector2 point){
-    Real dis = (pos - point).Length();
-    if( dis < radius)
-        return true;
-    else
-        return false;
+//TODO modificar para que te devuelva la distacia al rectangulo?
+bool CFootBotLamb::IsInPlace(CVector2 target){
+    Real dis = (pos - target).Length();
+    return dis < radius;
 }
+
+
+CVector2 CFootBotLamb::GetClosestPoint(vector<CVector2> *targets){
+    CVector2 closest = (*targets)[0];
+    Real min = (closest - pos).Length();
+    for(auto t: *targets){
+        if((t - pos).Length() < min)
+            closest = t;
+    }
+    return closest;
+}
+
 
 void CFootBotLamb::SetIdNum(CFootBotLamb* robot){
     robot->id_num = id_counter ++;
-
 }
+
+// void CFootBotLamb::SetTroughs(){
+//     printf("HEY NOW YOU ARE A ROCKSTART\n" );
+//     LOG<<"HEY NOW YOU ARE A ROCKSTART\n";
+// }
 
 CVector3 CFootBotLamb::GetPos(){
     return CVector3(pos.GetX(),pos.GetY(), 0);
@@ -300,97 +311,57 @@ void CFootBotLamb::Destroy(){
 /*******************************************************
 ********************************************************
 *******************************************************/
-//Metodos update de los nodos del behavior trees
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::IncreaseHP::update(){
-    *health_stat = HP_STAT_FULL;
-    return Status::Success;
-}
+//Nodos del behavior trees
 
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::NeedWater::update(){
+        if(lamb->priority == "water")
+            return Status::Success;
+        return Status::Failure;
+    }
 
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoTo::update(){
-    if(lamb->IsInPlace(*target_pos)){
-        lamb->Stop();
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::NeedFood::update(){
+        if(lamb->priority == "food")
+            return Status::Success;
+        return Status::Failure;
+    }
+
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::NeedRest::update(){
+        if(lamb->priority == "rest")
+            return Status::Success;
+        return Status::Failure;
+    }
+
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::CanDrink::update(){
         return Status::Success;
     }
 
-    CVector2  v = lamb->CalculateDirection(*target_pos);
-    CRadians angle_remaining = (v.Angle() - lamb->rot.z).SignedNormalize();
-
-    LOG<<"Angulo objetivo: "<< v.Angle().GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
-    LOG<<"Aungulo restante: "<< angle_remaining.GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
-    LOG<<"vector: "<< v<< endl;
-
-    if(angle_remaining.GetAbsoluteValue() > ANGLE_THRESHOLD){
-        if(angle_remaining < CRadians::ZERO){
-            lamb->TurnRight();
-            // LOG<<"->"<<endl;
-            return Status::Running;
-        }
-        else {
-            lamb->TurnLeft();
-            // LOG<<"<-"<<endl;
-            return Status::Running;
-        }
-    }
-    else{
-        lamb->MoveForward();
-        // LOG<<"^"<<endl;
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoToWater::update(){
+        CVector2 water = lamb->GetClosestPoint(&(lamb->water_troughs));
+        lamb->GoTo(water);
         return Status::Running;
     }
-}
 
+    void CFootBotLamb::GoToWater::terminate(Status s){
+        if(status == Status::Running){
+            lamb->Stop();
+            status = Status::Invalid;
+        }
+    }
 
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::Advance::update(){
-    if(lamb->IsInPlace(*target_pos)) {
-        lamb->Stop();
-        return Status::Success;
-    } else{
-        lamb->MoveForward();
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::Drink::update(){
+        lamb->water += 15;
+        if(lamb->water >= HP_STAT_FULL)
+            return Status::Success;
         return Status::Running;
     }
-}
 
 
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::SelectRandomPos::update(){
-    lamb->random_pos = CVector2(lamb->rng->Uniform(CRange<Real>(-3,3)),
-                        lamb->rng->Uniform(CRange<Real>(-3,3)));
-    LOG<<lamb->random_pos<<endl;
-    return Status::Success;
-}
-
-
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionDepletion::update(){
-    // LOG<<lamb->GetId()<<" w : "<< lamb->water
-    //     <<" f: "<<lamb->food
-    //     <<" e: "<<lamb->energy<<endl;
-    if(lamb->GetHPState(*health_stat) != HPState::GOOD)
-        return Status::Success;
-    else
-        return Status::Failure;
-}
-
-
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionIsInPlace::update(){
-    if(lamb->IsInPlace(*target_pos))
-        return Status::Success;
-    else
-        return Status::Failure;
-}
-
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::ConditionAligned::update(){
-    CRadians angle_remaining = (*target_pos - lamb->pos).Angle() - lamb->rot.z;
-
-    if(angle_remaining.GetAbsoluteValue() > ANGLE_THRESHOLD)
-        return Status::Failure;
-    else
-        return Status::Success;
-}
-
-//TODO borrar este nodo del arbol mas adelante
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::PrintNode::update(){
-    // LOG<<lamb->GetId()<<" ALINEADO"<<endl;
-    return Status::Success;
-}
+// CFootBotLamb::NodeFootBot::Status CFootBotLamb::SelectRandomPos::update(){
+//     lamb->random_pos = CVector2(lamb->rng->Uniform(CRange<Real>(-3,3)),
+//                         lamb->rng->Uniform(CRange<Real>(-3,3)));
+//     LOG<<lamb->random_pos<<endl;
+//     return Status::Success;
+// }
 
 /* Asocia la clase a la cadena de caracteres para poder usar el controller desde el archivo de configuracion
  */

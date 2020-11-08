@@ -11,6 +11,7 @@ namespace argos {
 CTroughEntity::CTroughEntity():
                 CComposableEntity(NULL),
                 m_pcEmbodiedEntity(NULL),
+                m_cSize(1.50,0.5,0.25),
                 m_fMass(0.0f),
                 scale(1),
                 trough_type(WATER) {}
@@ -23,6 +24,7 @@ void CTroughEntity::Init(TConfigurationNode& t_tree) {
         /* Parse XML */
         CComposableEntity::Init(t_tree);
         GetNodeAttributeOrDefault(t_tree, "scale", scale, scale);
+        m_cSize *= scale;
         std::string type;
         GetNodeAttributeOrDefault(t_tree, "type", type, type);
         if(type == "water")

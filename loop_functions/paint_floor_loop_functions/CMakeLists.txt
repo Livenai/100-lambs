@@ -1,3 +1,4 @@
+include_directories(${CMAKE_SOURCE_DIR}/controllers/footbot_lamb)
 add_library(paint_floor_loop_functions MODULE
   paint_floor_loop_functions.h
 paint_floor_loop_functions.cpp)

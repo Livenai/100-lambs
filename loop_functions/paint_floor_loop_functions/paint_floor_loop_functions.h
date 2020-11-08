@@ -24,8 +24,8 @@ public:
 private:
     // radio de las manchas que representan el agua, comida, etc;
     Real radius;
-    CVector2 water_pos, food_pos, bed_pos;
-    CColor water_color, food_color, bed_color, floor_color;
+    CVector2 bed_pos;
+    CColor bed_color, floor_color;
 };
 
 #endif
