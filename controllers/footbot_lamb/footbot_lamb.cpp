@@ -7,6 +7,7 @@
 UInt8 CFootBotLamb::id_counter = 0;
 vector<CVector2> CFootBotLamb::water_troughs;
 vector<CVector2> CFootBotLamb::food_troughs;
+// vector<CVector2> CFootBotLamb::beds;
 
 CFootBotLamb::CFootBotLamb() :
     wheels_act(NULL),
@@ -51,7 +52,12 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    TConfigurationNode arena_conf = GetNode(CSimulator::GetInstance().GetConfigurationRoot(), "arena");
    //TODO comprobar valores de los parametros
    GetNodeAttribute(arena_conf, "radius", radius);
-   // GetNodeAttribute(arena_conf, "bed_pos", bed_pos);
+
+   //FIXME la cama se configura aqui pero los comederos y bebederos en otro sitio
+   //puede paracer poco organizado
+   CVector2 bed_pos;
+   GetNodeAttribute(arena_conf, "bed_pos", bed_pos);
+   beds.push_back(bed_pos);
 
    // Configuracion del controller
    GetNodeAttributeOrDefault(t_node, "linear_speed", speed, speed);
@@ -65,7 +71,7 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    bt_interval *= ticks_per_second;
 
 
-   //TODO hardcoded, ya no lo uso
+   //TODO hardcoded, y ademas ya no lo uso
    // proxi_limit = 0.25;
    // robot_radius = 0.085036758f;
 
@@ -158,6 +164,7 @@ void CFootBotLamb::ControlStep() {
         if (food > 0)  food --;
         if (rest > 0)  rest --;
         hp_timer = hp_interval;
+        RLOG <<"w: "<< water<<", f: "<<food<<", r: "<<rest<<"\n";
     }
 
     //FIXME pone a 0 el mensaje de salida, es un apaño,
@@ -296,7 +303,7 @@ void CFootBotLamb::UpdatePriority(){
         priority = "none";
 }
 
-//TODO modificar para que te devuelva la distacia al rectangulo?
+//FIXME
 bool CFootBotLamb::IsInPlace(CVector2 target){
     Real dis = (pos - target).Length();
     return dis < radius;
@@ -371,9 +378,33 @@ void CFootBotLamb::Destroy(){
         return Status::Failure;
     }
 
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::CanEat::update(){
+        if(lamb->IsInPlace(lamb->current_target))
+            return Status::Success;
+        return Status::Failure;
+    }
+
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::CanSleep::update(){
+        if(lamb->IsInPlace(lamb->current_target))
+            return Status::Success;
+        return Status::Failure;
+    }
+
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoToWater::update(){
         CVector2 water = lamb->GetClosestPoint(&(lamb->water_troughs));
         lamb->GoTo(water);
+        return Status::Running;
+    }
+
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoToFood::update(){
+        CVector2 food = lamb->GetClosestPoint(&(lamb->food_troughs));
+        lamb->GoTo(food);
+        return Status::Running;
+    }
+
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoToBed::update(){
+        CVector2 bed = lamb->GetClosestPoint(&(lamb->beds));
+        lamb->GoTo(bed);
         return Status::Running;
     }
 
@@ -384,9 +415,35 @@ void CFootBotLamb::Destroy(){
         }
     }
 
+    void CFootBotLamb::GoToFood::terminate(Status s){
+        if(status == Status::Running){
+            lamb->Stop();
+            status = Status::Invalid;
+        }
+    }
+
+    void CFootBotLamb::GoToBed::terminate(Status s){
+        if(status == Status::Running){
+            lamb->Stop();
+            status = Status::Invalid;
+        }
+    }
+
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::Drink::update(){
         lamb->water += 15;
         if(lamb->water >= HP_STAT_FULL)
+            return Status::Success;
+        return Status::Running;
+    }
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::Eat::update(){
+        lamb->food += 15;
+        if(lamb->food >= HP_STAT_FULL)
+            return Status::Success;
+        return Status::Running;
+    }
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::Sleep::update(){
+        lamb->rest += 15;
+        if(lamb->rest >= HP_STAT_FULL)
             return Status::Success;
         return Status::Running;
     }

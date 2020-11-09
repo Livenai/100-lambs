@@ -136,8 +136,13 @@ private:
 
     static UInt8 id_counter;
     UInt8 id_num;
+
+    //TODO tratar las camas de la misma forma que los comederos y bebederos
+    //static y obteniendo la posicion de la misma forma
     static vector<CVector2> water_troughs;
     static vector<CVector2> food_troughs;
+    // static vector<CVector2> beds;
+    vector<CVector2> beds;
 
     /* Pointer to the differential steering actuator */
     CCI_DifferentialSteeringActuator *wheels_act;
@@ -191,51 +196,39 @@ private:
         }
     };
 
-    //TODO Quiza se puedan definir las clases con un MACRO y quedaria
-    //más limpio
-    class NeedWater :
-     public NodeFootBot{
-    public:
-        NeedWater(CFootBotLamb * lamb):NodeFootBot(lamb){}
-        Status update() override;
+    //Varias definiciones de clases similares mediante un MACRO
+    #define NODE_0_DECLARATION(NODE_NAME) \
+    class NODE_NAME: public NodeFootBot{\
+        public:    \
+        NODE_NAME(CFootBotLamb * lamb):NodeFootBot(lamb){}\
+        Status update() override;\
     };
 
-    class NeedFood :
-     public NodeFootBot{
-    public:
-        NeedFood(CFootBotLamb * lamb):NodeFootBot(lamb){}
-        Status update() override;
+    #define NODE_1_DECLARATION(NODE_NAME) \
+    class NODE_NAME: public NodeFootBot{\
+        public:    \
+        NODE_NAME(CFootBotLamb * lamb):NodeFootBot(lamb){}\
+        Status update() override;\
+        void terminate(Status s) override;\
     };
 
-    class NeedRest :
-     public NodeFootBot{
-    public:
-        NeedRest(CFootBotLamb * lamb):NodeFootBot(lamb){}
-        Status update() override;
-    };
+    NODE_0_DECLARATION(NeedWater)
+    NODE_0_DECLARATION(CanDrink)
+    NODE_1_DECLARATION(GoToWater)
+    NODE_0_DECLARATION(Drink)
 
-    class CanDrink:
-     public NodeFootBot{
-    public:
-        CanDrink(CFootBotLamb * lamb):NodeFootBot(lamb){}
-        Status update() override;
-    };
+    NODE_0_DECLARATION(NeedFood)
+    NODE_0_DECLARATION(CanEat)
+    NODE_1_DECLARATION(GoToFood)
+    NODE_0_DECLARATION(Eat)
 
-    class GoToWater :
-     public NodeFootBot{
-    public:
-        GoToWater(CFootBotLamb * lamb):NodeFootBot(lamb){}
-        Status update() override;
-        void terminate(Status s) override;
-    };
+    NODE_0_DECLARATION(NeedRest)
+    NODE_0_DECLARATION(CanSleep)
+    NODE_1_DECLARATION(GoToBed)
+    NODE_0_DECLARATION(Sleep)
 
-    class Drink :
-     public NodeFootBot{
-    public:
-        Drink(CFootBotLamb * lamb):NodeFootBot(lamb){}
-        Status update() override;
-    };
-
+    #undef NODE_0_DECLARATION
+    #undef NODE_1_DECLARATION
 
 
 };

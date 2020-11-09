@@ -64,7 +64,7 @@
     <distribute>
       <position method="uniform" min="-1.75,-1.75,0" max="0,0,0" />
       <orientation method="gaussian" mean="0,0,0" std_dev="360,0,0" />
-      <entity quantity="50" max_trials="500">
+      <entity quantity="1" max_trials="500">
         <foot-bot id="lamb" rab_data_size="26" rab_range="2.5" proxi_range="0.25">
           <controller config="lc" />
         </foot-bot>
