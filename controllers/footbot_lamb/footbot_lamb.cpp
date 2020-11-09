@@ -77,7 +77,7 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
 
 
    bt = BrainTree::Builder()
-                    .composite<BrainTree::Selector>()
+                    .composite<BrainTree::ActiveSelector>()
                         // Secuencia para beber
                         .composite<BrainTree::Sequence>()
                             .leaf<NeedWater>(this) //Tiene sed?
@@ -164,7 +164,7 @@ void CFootBotLamb::ControlStep() {
         if (food > 0)  food --;
         if (rest > 0)  rest --;
         hp_timer = hp_interval;
-        RLOG <<"w: "<< water<<", f: "<<food<<", r: "<<rest<<"\n";
+        // RLOG <<"w: "<< water<<", f: "<<food<<", r: "<<rest<<"\n";
     }
 
     //FIXME pone a 0 el mensaje de salida, es un apaño,
@@ -301,9 +301,10 @@ void CFootBotLamb::UpdatePriority(){
         priority = "rest";
     else
         priority = "none";
+    // RLOG<<priority<<endl;
 }
 
-//FIXME
+//FIXME muy cutrillo
 bool CFootBotLamb::IsInPlace(CVector2 target){
     Real dis = (pos - target).Length();
     return dis < radius;
@@ -349,112 +350,8 @@ void CFootBotLamb::Destroy(){
     CFootBotLamb::id_counter --;
 }
 
-/*******************************************************
-********************************************************
-*******************************************************/
-//Nodos del behavior trees
-
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::NeedWater::update(){
-        if(lamb->priority == "water")
-            return Status::Success;
-        return Status::Failure;
-    }
-
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::NeedFood::update(){
-        if(lamb->priority == "food")
-            return Status::Success;
-        return Status::Failure;
-    }
-
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::NeedRest::update(){
-        if(lamb->priority == "rest")
-            return Status::Success;
-        return Status::Failure;
-    }
-
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::CanDrink::update(){
-        if(lamb->IsInPlace(lamb->current_target))
-            return Status::Success;
-        return Status::Failure;
-    }
-
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::CanEat::update(){
-        if(lamb->IsInPlace(lamb->current_target))
-            return Status::Success;
-        return Status::Failure;
-    }
-
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::CanSleep::update(){
-        if(lamb->IsInPlace(lamb->current_target))
-            return Status::Success;
-        return Status::Failure;
-    }
-
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoToWater::update(){
-        CVector2 water = lamb->GetClosestPoint(&(lamb->water_troughs));
-        lamb->GoTo(water);
-        return Status::Running;
-    }
-
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoToFood::update(){
-        CVector2 food = lamb->GetClosestPoint(&(lamb->food_troughs));
-        lamb->GoTo(food);
-        return Status::Running;
-    }
-
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoToBed::update(){
-        CVector2 bed = lamb->GetClosestPoint(&(lamb->beds));
-        lamb->GoTo(bed);
-        return Status::Running;
-    }
-
-    void CFootBotLamb::GoToWater::terminate(Status s){
-        if(status == Status::Running){
-            lamb->Stop();
-            status = Status::Invalid;
-        }
-    }
-
-    void CFootBotLamb::GoToFood::terminate(Status s){
-        if(status == Status::Running){
-            lamb->Stop();
-            status = Status::Invalid;
-        }
-    }
-
-    void CFootBotLamb::GoToBed::terminate(Status s){
-        if(status == Status::Running){
-            lamb->Stop();
-            status = Status::Invalid;
-        }
-    }
-
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::Drink::update(){
-        lamb->water += 15;
-        if(lamb->water >= HP_STAT_FULL)
-            return Status::Success;
-        return Status::Running;
-    }
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::Eat::update(){
-        lamb->food += 15;
-        if(lamb->food >= HP_STAT_FULL)
-            return Status::Success;
-        return Status::Running;
-    }
-    CFootBotLamb::NodeFootBot::Status CFootBotLamb::Sleep::update(){
-        lamb->rest += 15;
-        if(lamb->rest >= HP_STAT_FULL)
-            return Status::Success;
-        return Status::Running;
-    }
-
-
-// CFootBotLamb::NodeFootBot::Status CFootBotLamb::SelectRandomPos::update(){
-//     lamb->random_pos = CVector2(lamb->rng->Uniform(CRange<Real>(-3,3)),
-//                         lamb->rng->Uniform(CRange<Real>(-3,3)));
-//     LOG<<lamb->random_pos<<endl;
-//     return Status::Success;
-// }
+//Nodos del behavior trees definidos en otro archivo
+//footbot_lamb_bt_nodes.cpp
 
 /* Asocia la clase a la cadena de caracteres para poder usar el controller desde el archivo de configuracion
  */

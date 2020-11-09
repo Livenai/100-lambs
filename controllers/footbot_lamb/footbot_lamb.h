@@ -36,7 +36,7 @@
 #define CODE_PING_REPLY 2
 
 #define HP_STAT_FULL 700
-#define HP_STAT_BAD 200
+#define HP_STAT_BAD 400
 #define HP_STAT_CRITIC 100
 
 //en radianes
