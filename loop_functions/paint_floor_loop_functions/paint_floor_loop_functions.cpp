@@ -9,10 +9,8 @@ void CPaintFloorLoopFunctions::Init(TConfigurationNode& t_tree) {
     TConfigurationNode arena_conf = GetNode(CSimulator::GetInstance().GetConfigurationRoot(), "arena");
     GetNodeAttribute(arena_conf, "radius", radius);
     GetNodeAttribute(arena_conf, "bed_pos", bed_pos);
-    // CFootBotLamb::SetTroughs();
 
-
-
+    CFootBotLamb::SetTroughs();
 }
 
 /****************************************/

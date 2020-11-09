@@ -52,6 +52,10 @@ public:
         scale = c_scale;
     }
 
+    inline CVector2 GetPos() {
+        return pos2d ;
+    }
+
 
     virtual std::string GetTypeDescription() const {
         return "trough";
@@ -63,6 +67,8 @@ private:
     Real                m_fMass;
     Real                scale;
     Trough_type trough_type;
+    CVector3 pos;
+    CVector2 pos2d;
 
 };
 

@@ -34,7 +34,10 @@ void CTroughEntity::Init(TConfigurationNode& t_tree) {
         /* Create embodied entity using parsed data */
         m_pcEmbodiedEntity = new CEmbodiedEntity(this);
         AddComponent(*m_pcEmbodiedEntity);
-        m_pcEmbodiedEntity->Init(GetNode(t_tree, "body"));
+        TConfigurationNode body = GetNode(t_tree, "body");
+        GetNodeAttribute(body, "position", pos);
+        pos2d = CVector2(pos.GetX(), pos.GetY());
+        m_pcEmbodiedEntity->Init(body);
         m_pcEmbodiedEntity->SetMovable(false);
 
 

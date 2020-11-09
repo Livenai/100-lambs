@@ -29,7 +29,8 @@
 // id obtaining and entity workflow
 #include <argos3/plugins/simulator/visualizations/qt-opengl/qtopengl_user_functions.h>
 #include <argos3/plugins/robots/foot-bot/simulator/footbot_entity.h>
-
+// #include "trough_entity.h"
+#include "/home/cerbero/TFG/100-lambs/plugins/simulator/entities/trough_entity.h"
 
 #define CODE_PING 1
 #define CODE_PING_REPLY 2
@@ -102,7 +103,7 @@ public:
     */
     virtual void Destroy();
 
-    // void static SetTroughs();
+    void static SetTroughs();
 
 private:
 
@@ -135,7 +136,6 @@ private:
 
     static UInt8 id_counter;
     UInt8 id_num;
-
     static vector<CVector2> water_troughs;
     static vector<CVector2> food_troughs;
 
@@ -169,6 +169,7 @@ private:
     //Puntos de salud o HP
     UInt32 rest, food, water;
     string priority;
+    CVector2 current_target;
 
     Real radius;
 

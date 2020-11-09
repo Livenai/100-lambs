@@ -5,6 +5,8 @@
 /****************************************/
 /****************************************/
 UInt8 CFootBotLamb::id_counter = 0;
+vector<CVector2> CFootBotLamb::water_troughs;
+vector<CVector2> CFootBotLamb::food_troughs;
 
 CFootBotLamb::CFootBotLamb() :
     wheels_act(NULL),
@@ -21,8 +23,6 @@ CFootBotLamb::CFootBotLamb() :
     {
         CFootBotLamb::SetIdNum(this);
         rng = CRandom::CreateRNG( "argos" );
-        water_troughs = vector<CVector2>();
-        food_troughs = vector<CVector2>();
 }
 
 /****************************************/
@@ -85,6 +85,32 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
                                 .end()
                             .end()
                         .end()//Fin de sequencia para beber
+                        // Secuencia para comer
+                        .composite<BrainTree::Sequence>()
+                            .leaf<NeedFood>(this) //Tiene hambre?
+                            .composite<BrainTree::ActiveSelector>()
+                                .composite<BrainTree::Sequence>()
+                                    .leaf<CanEat>(this)//esta al lado del comedero
+                                    .leaf<Eat>(this)
+                                .end()
+                                .composite<BrainTree::Sequence>()//Ir al sitio
+                                    .leaf<GoToFood>(this)
+                                .end()
+                            .end()
+                        .end()//Fin de sequencia para comer
+                        // Secuencia para dormir
+                        .composite<BrainTree::Sequence>()
+                            .leaf<NeedRest>(this) //Tiene sueño?
+                            .composite<BrainTree::ActiveSelector>()
+                                .composite<BrainTree::Sequence>()
+                                    .leaf<CanSleep>(this)//esta al lado de la cama?
+                                    .leaf<Sleep>(this)
+                                .end()
+                                .composite<BrainTree::Sequence>()//Ir al sitio
+                                    .leaf<GoToBed>(this)
+                                .end()
+                            .end()
+                        .end()//Fin de sequencia para dormir
                     .end()
                 .build();
 
@@ -100,10 +126,12 @@ void CFootBotLamb::Reset() {
     bt_timer = (id_num%(UInt8)bt_interval)+1;
 
     neightbors.clear();
-    water = HP_STAT_BAD;
-    // water = HP_STAT_FULL; //FIXME
-    food = HP_STAT_FULL;
-    rest = HP_STAT_FULL;
+    // water = HP_STAT_FULL;
+    // food = HP_STAT_FULL;
+    // rest = HP_STAT_FULL;
+    water = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
+    food = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
+    rest = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
 }
 
 /****************************************/
@@ -122,7 +150,6 @@ void CFootBotLamb::ControlStep() {
         UpdatePriority();
         bt.update();
         bt_timer = bt_interval;
-        // LOG <<id_num<<endl;
     }
 
     //decremento de los HP
@@ -283,6 +310,7 @@ CVector2 CFootBotLamb::GetClosestPoint(vector<CVector2> *targets){
         if((t - pos).Length() < min)
             closest = t;
     }
+    current_target = closest;
     return closest;
 }
 
@@ -291,10 +319,16 @@ void CFootBotLamb::SetIdNum(CFootBotLamb* robot){
     robot->id_num = id_counter ++;
 }
 
-// void CFootBotLamb::SetTroughs(){
-//     printf("HEY NOW YOU ARE A ROCKSTART\n" );
-//     LOG<<"HEY NOW YOU ARE A ROCKSTART\n";
-// }
+void CFootBotLamb::SetTroughs(){
+    CSpace::TMapPerType troughs = CSimulator::GetInstance().GetSpace().GetEntitiesByType("trough");
+    for(auto it: troughs){
+        CTroughEntity *t = any_cast<CTroughEntity*>(it.second);
+        if(t->GetType() == Trough_type::WATER)
+            water_troughs.push_back(t->GetPos());
+        else
+            food_troughs.push_back(t->GetPos());
+    }
+}
 
 CVector3 CFootBotLamb::GetPos(){
     return CVector3(pos.GetX(),pos.GetY(), 0);
@@ -332,7 +366,9 @@ void CFootBotLamb::Destroy(){
     }
 
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::CanDrink::update(){
-        return Status::Success;
+        if(lamb->IsInPlace(lamb->current_target))
+            return Status::Success;
+        return Status::Failure;
     }
 
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoToWater::update(){
