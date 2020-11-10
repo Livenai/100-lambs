@@ -16,15 +16,13 @@
 #include <argos3/core/utility/math/rng.h>
 /* Definition of the CCI_Controller class. */
 #include <argos3/core/control_interface/ci_controller.h>
-/* Definition of the differential steering actuator */
+/* Definition of several sensors and actuators */
 #include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_actuator.h>
-/* Definition of the foot-bot proximity sensor */
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_proximity_sensor.h>
-/* Definition of the positioning sensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
-/*radio sensor and actuartor*/
 #include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_sensor.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_actuator.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
 
 // id obtaining and entity workflow
 #include <argos3/plugins/simulator/visualizations/qt-opengl/qtopengl_user_functions.h>
@@ -103,6 +101,7 @@ public:
     */
     virtual void Destroy();
 
+    void ShowDebugInformation(bool show);
     void static SetTroughs();
 
 private:
@@ -143,14 +142,14 @@ private:
     static vector<CVector2> food_troughs;
     // static vector<CVector2> beds;
     vector<CVector2> beds;
+    CVector2 random_pos;
 
-    /* Pointer to the differential steering actuator */
+
+    /* Pointer to sensors and actuator */
     CCI_DifferentialSteeringActuator *wheels_act;
-    /* Pointer to the foot-bot proximity sensor */
+    CCI_LEDsActuator *leds;
     CCI_FootBotProximitySensor *proxi_sens;
-    // Pointer to pos sensor
     CCI_PositioningSensor *pos_sens;
-    //Radio sensor and actuators
     CCI_RangeAndBearingSensor *rb_sens;
     CCI_RangeAndBearingActuator *rb_act;
 
@@ -168,17 +167,19 @@ private:
     bool clear_message;//bandera
     std::map<UInt8,Neightbor_Info> neightbors;
 
-    CVector2 pos, target;
+    CVector2 pos;
     EulerRotation rot;
 
     //Puntos de salud o HP
-    UInt32 rest, food, water;
+    UInt32 rest, food, water, social;
     string priority;
     CVector2 current_target;
 
     Real radius;
 
     BrainTree::BehaviorTree bt;
+    bool show_debug;
+    map<string, CColor> colors;
 
     /****************************************************/
 
@@ -226,6 +227,12 @@ private:
     NODE_0_DECLARATION(CanSleep)
     NODE_1_DECLARATION(GoToBed)
     NODE_0_DECLARATION(Sleep)
+
+    NODE_0_DECLARATION(SelectRandomPos)
+    NODE_0_DECLARATION(IsAtRandomPos)
+    NODE_1_DECLARATION(GoToRandomPos)
+
+
 
     #undef NODE_0_DECLARATION
     #undef NODE_1_DECLARATION

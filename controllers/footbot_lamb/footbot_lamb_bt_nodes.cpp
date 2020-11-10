@@ -2,8 +2,10 @@
 //Nodos del behavior trees
 //TODO son muy repetitivos, podria aunar algunos
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::NeedWater::update(){
-        if(lamb->priority == "water")
+        if(lamb->priority == "water"){
+            // lamb->leds->SetAllColors(CColor::RED);
             return Status::Success;
+        }
         return Status::Failure;
     }
 
@@ -78,8 +80,9 @@
 
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::Drink::update(){
         lamb->water += 15;
-        if(lamb->water >= HP_STAT_FULL)
+        if(lamb->water >= HP_STAT_FULL){
             return Status::Success;
+        }
         return Status::Running;
     }
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::Eat::update(){
@@ -96,9 +99,30 @@
     }
 
 
-// CFootBotLamb::NodeFootBot::Status CFootBotLamb::SelectRandomPos::update(){
-//     lamb->random_pos = CVector2(lamb->rng->Uniform(CRange<Real>(-3,3)),
-//                         lamb->rng->Uniform(CRange<Real>(-3,3)));
-//     LOG<<lamb->random_pos<<endl;
-//     return Status::Success;
-// }
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::SelectRandomPos::update(){
+        //TODO hardcoded el tamaño de la arena
+        lamb->random_pos = CVector2::ZERO;
+        // lamb->random_pos = CVector2(lamb->rng->Uniform(CRange<Real>(-3,3)),
+        //                     lamb->rng->Uniform(CRange<Real>(-3,3)));
+        return Status::Success;
+    }
+
+
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoToRandomPos::update(){
+        lamb->GoTo(lamb->random_pos);
+        return Status::Running;
+    }
+
+    void CFootBotLamb::GoToRandomPos::terminate(Status s){
+        if(status == Status::Running){
+            lamb->Stop();
+            status = Status::Invalid;
+        }
+    }
+
+
+CFootBotLamb::NodeFootBot::Status CFootBotLamb::IsAtRandomPos::update(){
+    if(lamb->IsInPlace( lamb->random_pos))
+        return Status::Success;
+    return Status::Failure;
+}

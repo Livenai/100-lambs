@@ -22,6 +22,7 @@
           <!-- <radios implementation="default" /> -->
             <range_and_bearing implementation="default" />
             <differential_steering implementation="default" />
+            <leds implementation="default" medium="leds" />
       </actuators>
       <sensors>
             <!-- <radios implementation="default" medium="radios" /> -->
@@ -49,16 +50,16 @@
 
       <!-- perimetro del corral -->
         <box id="wall_north" size="3.5,0.05,0.2" movable="false">
-            <body position="0,1.775,0" orientation="0,0,0" />
+            <body position="0,1.75,0" orientation="0,0,0" />
         </box>
         <box id="wall_south" size="3.5,0.05,0.2" movable="false">
-            <body position="0,-1.775,0" orientation="0,0,0" />
+            <body position="0,-1.75,0" orientation="0,0,0" />
         </box>
         <box id="wall_west" size="0.05,3.5,0.2" movable="false">
-            <body position="-1.775,0,0" orientation="0,0,0" />
+            <body position="-1.75,0,0" orientation="0,0,0" />
         </box>
         <box id="wall_east" size="0.05,3.5,0.2" movable="false">
-            <body position="1.775,0,0" orientation="0,0,0" />
+            <body position="1.75,0,0" orientation="0,0,0" />
         </box>
 
     <distribute>
@@ -109,9 +110,8 @@
   <!-- * Media * -->
   <!-- ********* -->
   <media>
-      <!-- <radio id="radios" /> -->
-      <range_and_bearing id="rab" />
-
+      <range_and_bearing id="rab" check_occlusions="false" />
+      <led id="leds" />
   </media>
 
   <!-- ****************** -->
@@ -124,8 +124,8 @@
         Check 'argos3 -q qt-opengl' for more help.
     -->
     <qt-opengl>
-      <!-- <user_functions library="build/loop_functions/id_loop_functions/libid_loop_functions"
-                      label="id_qtuser_functions" /> -->
+      <user_functions library="build/loop_functions/lamb_loop_functions/liblamb_loop_functions"
+                      label="lamb_qtuser_functions" show_id="false"/>
 
       <camera>
           <placement idx="0" position="0,0,4.6" look_at="0,0,0" up="0,1,0" lens_focal_length="20" />

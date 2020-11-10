@@ -20,10 +20,18 @@ CFootBotLamb::CFootBotLamb() :
     beta(0.5),
     ping_interval(3),
     hp_interval(1),
-    bt_interval(0.5)
+    bt_interval(0.5),
+    show_debug(false),
+    random_pos()
     {
         CFootBotLamb::SetIdNum(this);
         rng = CRandom::CreateRNG( "argos" );
+
+        colors["water"]  = CColor::BLUE;
+        colors["food"]   = CColor::RED;
+        colors["rest"]   = CColor::MAGENTA;
+        colors["social"] = CColor::GREEN;
+        colors["none"]   = CColor::YELLOW;
 }
 
 /****************************************/
@@ -32,11 +40,12 @@ CFootBotLamb::CFootBotLamb() :
 void CFootBotLamb::Init(TConfigurationNode& t_node) {
 
    // Get sensor/actuator handles
-   wheels_act   = GetActuator<CCI_DifferentialSteeringActuator >("differential_steering");
-   proxi_sens   = GetSensor  <CCI_FootBotProximitySensor       >("footbot_proximity"    );
-   pos_sens     = GetSensor  <CCI_PositioningSensor            >("positioning"          );
-   rb_act       = GetActuator<CCI_RangeAndBearingActuator      >("range_and_bearing"    );
-   rb_sens      = GetSensor  <CCI_RangeAndBearingSensor        >("range_and_bearing"    );
+   wheels_act = GetActuator<CCI_DifferentialSteeringActuator >("differential_steering");
+   leds       = GetActuator<CCI_LEDsActuator                 >("leds"                 );
+   proxi_sens = GetSensor  <CCI_FootBotProximitySensor       >("footbot_proximity"    );
+   pos_sens   = GetSensor  <CCI_PositioningSensor            >("positioning"          );
+   rb_act     = GetActuator<CCI_RangeAndBearingActuator      >("range_and_bearing"    );
+   rb_sens    = GetSensor  <CCI_RangeAndBearingSensor        >("range_and_bearing"    );
 
 
    //Configuracion del experimento.
@@ -70,12 +79,7 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
    GetNodeAttributeOrDefault(t_node, "bt_interval", bt_interval, bt_interval);
    bt_interval *= ticks_per_second;
 
-
-   //TODO hardcoded, y ademas ya no lo uso
-   // proxi_limit = 0.25;
-   // robot_radius = 0.085036758f;
-
-
+   //configuracion del arbol de comportamiento
    bt = BrainTree::Builder()
                     .composite<BrainTree::ActiveSelector>()
                         // Secuencia para beber
@@ -117,11 +121,20 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
                                 .end()
                             .end()
                         .end()//Fin de sequencia para dormir
+                        .composite<BrainTree::Sequence>()//sequencia para pasear
+                            .leaf<SelectRandomPos>(this)
+                            .composite<BrainTree::ActiveSelector>()
+                                .leaf<IsAtRandomPos>(this)
+                                .leaf<GoToRandomPos>(this)
+                            .end()
+                        .end()//Fin de la sequencia para pasear
                     .end()
                 .build();
 
    Reset();
 }
+
+
 //TODO habría que reiniciar el arbol tambien
 void CFootBotLamb::Reset() {
     mess_count = 0;
@@ -132,12 +145,20 @@ void CFootBotLamb::Reset() {
     bt_timer = (id_num%(UInt8)bt_interval)+1;
 
     neightbors.clear();
+
     // water = HP_STAT_FULL;
     // food = HP_STAT_FULL;
     // rest = HP_STAT_FULL;
     water = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
     food = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
     rest = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
+    social = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
+
+}
+
+
+void CFootBotLamb::ShowDebugInformation(bool show){
+    this->show_debug = show;
 }
 
 /****************************************/
@@ -163,8 +184,8 @@ void CFootBotLamb::ControlStep() {
         if (water > 0)  water --;
         if (food > 0)  food --;
         if (rest > 0)  rest --;
+        if (social > 0)  social --;
         hp_timer = hp_interval;
-        // RLOG <<"w: "<< water<<", f: "<<food<<", r: "<<rest<<"\n";
     }
 
     //FIXME pone a 0 el mensaje de salida, es un apaño,
@@ -179,6 +200,12 @@ void CFootBotLamb::ControlStep() {
         ping_timer = ping_interval;
     }
     PollMessages();
+
+    if(show_debug){
+        RLOG <<"w: "<< water<<", f: "<<food<<", r: "<<rest<<"\n";
+        LOG<<"priority: "<<priority<<endl;
+        LOG<<"random_pos: "<<random_pos<<endl;
+    }
 }
 
 void CFootBotLamb::TurnLeft()
@@ -299,9 +326,11 @@ void CFootBotLamb::UpdatePriority(){
         priority = "food";
     else if(rest <= HP_STAT_BAD)
         priority = "rest";
+    // else if(social <= HP_STAT_BAD)
+    //     priority = "social";
     else
         priority = "none";
-    // RLOG<<priority<<endl;
+    leds->SetAllColors(colors[priority]);
 }
 
 //FIXME muy cutrillo
