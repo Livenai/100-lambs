@@ -27,11 +27,11 @@ CFootBotLamb::CFootBotLamb() :
         CFootBotLamb::SetIdNum(this);
         rng = CRandom::CreateRNG( "argos" );
 
-        colors["water"]  = CColor::BLUE;
-        colors["food"]   = CColor::RED;
-        colors["rest"]   = CColor::MAGENTA;
-        colors["social"] = CColor::GREEN;
-        colors["none"]   = CColor::YELLOW;
+        colors[water]  = CColor::BLUE;
+        colors[food]   = CColor::RED;
+        colors[rest]   = CColor::MAGENTA;
+        colors[social] = CColor::GREEN;
+        colors[walk]   = CColor::YELLOW;
 }
 
 /****************************************/
@@ -90,9 +90,7 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
                                     .leaf<CanDrink>(this)//esta al lado del bebedero
                                     .leaf<Drink>(this)
                                 .end()
-                                .composite<BrainTree::Sequence>()//Ir al sitio
-                                    .leaf<GoToWater>(this)
-                                .end()
+                                .leaf<GoToWater>(this)
                             .end()
                         .end()//Fin de sequencia para beber
                         // Secuencia para comer
@@ -103,9 +101,7 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
                                     .leaf<CanEat>(this)//esta al lado del comedero
                                     .leaf<Eat>(this)
                                 .end()
-                                .composite<BrainTree::Sequence>()//Ir al sitio
-                                    .leaf<GoToFood>(this)
-                                .end()
+                                .leaf<GoToFood>(this)
                             .end()
                         .end()//Fin de sequencia para comer
                         // Secuencia para dormir
@@ -116,9 +112,7 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
                                     .leaf<CanSleep>(this)//esta al lado de la cama?
                                     .leaf<Sleep>(this)
                                 .end()
-                                .composite<BrainTree::Sequence>()//Ir al sitio
-                                    .leaf<GoToBed>(this)
-                                .end()
+                                .leaf<GoToBed>(this)
                             .end()
                         .end()//Fin de sequencia para dormir
                         .composite<BrainTree::Sequence>()//sequencia para pasear
@@ -146,13 +140,8 @@ void CFootBotLamb::Reset() {
 
     neightbors.clear();
 
-    // water = HP_STAT_FULL;
-    // food = HP_STAT_FULL;
-    // rest = HP_STAT_FULL;
-    water = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
-    food = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
-    rest = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
-    social = rng->Uniform(CRange<UInt32>(HP_STAT_CRITIC,HP_STAT_FULL));
+    for(Stat_type s: {water, food, rest, social})
+        stats[s] = rng->Uniform(CRange<UInt32>(0,STAT_FULL));
 
 }
 
@@ -181,10 +170,11 @@ void CFootBotLamb::ControlStep() {
 
     //decremento de los HP
     if(--hp_timer <=0){
-        if (water > 0)  water --;
-        if (food > 0)  food --;
-        if (rest > 0)  rest --;
-        if (social > 0)  social --;
+        if (stats[water]  > 0)  stats[water]  --;
+        if (stats[food]   > 0)  stats[food]   --;
+        if (stats[rest]   > 0)  stats[rest]   --;
+        if (stats[social] > 0)  stats[social] --;
+        if (stats[walk]   > 0)  stats[walk]   --;
         hp_timer = hp_interval;
     }
 
@@ -202,8 +192,9 @@ void CFootBotLamb::ControlStep() {
     PollMessages();
 
     if(show_debug){
-        RLOG <<"w: "<< water<<", f: "<<food<<", r: "<<rest<<"\n";
-        LOG<<"priority: "<<priority<<endl;
+        RLOG <<"w: "<< stats[water]<<", f: "<<stats[food]<<", r: "<< stats[rest]
+        <<", walk: "<< stats[walk]<<"\n";
+        LOG<<"priority: "<<current_priority<<endl;
         LOG<<"random_pos: "<<random_pos<<endl;
     }
 }
@@ -252,8 +243,9 @@ void CFootBotLamb::PollMessages(){
     for(m = messages.begin() ; m != messages.end(); ++m){
         switch (m->Data[1]) {
             case CODE_PING:
+                //SendPosition prepara el mensaje que se enviara en el proximo tick
+                //no importa que se llame más de una vez en el bucle, solo se envia una vez
                 SendPosition();
-                //Aunque se llame varias veces en el bucle solo se envia una vez
                 break;
             case CODE_PING_REPLY:
                 // RLOG<<" recibe de "<<m->Data[0];
@@ -314,23 +306,27 @@ void CFootBotLamb::GoTo(CVector2 target) {
 /****************************************/
 
 void CFootBotLamb::UpdatePriority(){
-    if(water <= HP_STAT_CRITIC)
-        priority = "water";
-    else if(food <= HP_STAT_CRITIC)
-        priority = "food";
-    else if(rest <= HP_STAT_CRITIC)
-        priority = "rest";
-    else if(water <= HP_STAT_BAD)
-        priority = "water";
-    else if(food <= HP_STAT_BAD)
-        priority = "food";
-    else if(rest <= HP_STAT_BAD)
-        priority = "rest";
-    // else if(social <= HP_STAT_BAD)
-    //     priority = "social";
-    else
-        priority = "none";
-    leds->SetAllColors(colors[priority]);
+
+    if( stats[current_priority] >= STAT_FULL ||
+        (stats[walk] <= STAT_CRITIC && stats[current_priority] > STAT_HIGH)){
+        current_priority = walk;
+    }
+
+    for(Stat_type s : {water, food, rest}){
+        if( stats[s] <= STAT_BAD){
+            current_priority = s;
+            break;
+        }
+    }
+
+    for(Stat_type s : {water, food, rest}){
+        if( stats[s] <= STAT_CRITIC){
+            current_priority = s;
+            break;
+        }
+    }
+
+    leds->SetAllColors(colors[current_priority]);
 }
 
 //FIXME muy cutrillo

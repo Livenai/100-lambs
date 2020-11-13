@@ -33,9 +33,10 @@
 #define CODE_PING 1
 #define CODE_PING_REPLY 2
 
-#define HP_STAT_FULL 700
-#define HP_STAT_BAD 400
-#define HP_STAT_CRITIC 100
+#define STAT_FULL 1000
+#define STAT_HIGH 700
+#define STAT_BAD 400
+#define STAT_CRITIC 100
 
 //en radianes
 #define ANGLE_THRESHOLD 0.0523
@@ -60,6 +61,9 @@ struct EulerRotation{
         x = y = z = CRadians::ZERO;
     }
 };
+
+enum Stat_type {water, food, rest, social, walk};
+
 /*
 * A controller is simply an implementation of the CCI_Controller class.
 */
@@ -140,7 +144,6 @@ private:
     //static y obteniendo la posicion de la misma forma
     static vector<CVector2> water_troughs;
     static vector<CVector2> food_troughs;
-    // static vector<CVector2> beds;
     vector<CVector2> beds;
     CVector2 random_pos;
 
@@ -165,21 +168,23 @@ private:
 
     UInt8 mess_count;
     bool clear_message;//bandera
-    std::map<UInt8,Neightbor_Info> neightbors;
+    map<UInt8,Neightbor_Info> neightbors;
 
     CVector2 pos;
     EulerRotation rot;
 
     //Puntos de salud o HP
-    UInt32 rest, food, water, social;
-    string priority;
+    map<Stat_type, UInt32> stats;
+    //TODO comentar y ordenar
+    Stat_type current_priority;
+
     CVector2 current_target;
 
     Real radius;
 
     BrainTree::BehaviorTree bt;
     bool show_debug;
-    map<string, CColor> colors;
+    map<Stat_type, CColor> colors;
 
     /****************************************************/
 
@@ -216,17 +221,17 @@ private:
     NODE_0_DECLARATION(NeedWater)
     NODE_0_DECLARATION(CanDrink)
     NODE_1_DECLARATION(GoToWater)
-    NODE_0_DECLARATION(Drink)
+    NODE_1_DECLARATION(Drink)
 
     NODE_0_DECLARATION(NeedFood)
     NODE_0_DECLARATION(CanEat)
     NODE_1_DECLARATION(GoToFood)
-    NODE_0_DECLARATION(Eat)
+    NODE_1_DECLARATION(Eat)
 
     NODE_0_DECLARATION(NeedRest)
     NODE_0_DECLARATION(CanSleep)
     NODE_1_DECLARATION(GoToBed)
-    NODE_0_DECLARATION(Sleep)
+    NODE_1_DECLARATION(Sleep)
 
     NODE_0_DECLARATION(SelectRandomPos)
     NODE_0_DECLARATION(IsAtRandomPos)

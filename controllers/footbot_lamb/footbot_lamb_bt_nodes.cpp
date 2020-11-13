@@ -2,7 +2,7 @@
 //Nodos del behavior trees
 //TODO son muy repetitivos, podria aunar algunos
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::NeedWater::update(){
-        if(lamb->priority == "water"){
+        if(lamb->current_priority == water){
             // lamb->leds->SetAllColors(CColor::RED);
             return Status::Success;
         }
@@ -10,13 +10,13 @@
     }
 
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::NeedFood::update(){
-        if(lamb->priority == "food")
+        if(lamb->current_priority == food)
             return Status::Success;
         return Status::Failure;
     }
 
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::NeedRest::update(){
-        if(lamb->priority == "rest")
+        if(lamb->current_priority == rest)
             return Status::Success;
         return Status::Failure;
     }
@@ -60,53 +60,67 @@
     void CFootBotLamb::GoToWater::terminate(Status s){
         if(status == Status::Running){
             lamb->Stop();
-            status = Status::Invalid;
+            status = Status::Success;
         }
     }
 
     void CFootBotLamb::GoToFood::terminate(Status s){
         if(status == Status::Running){
             lamb->Stop();
-            status = Status::Invalid;
+            status = Status::Success;
         }
     }
 
     void CFootBotLamb::GoToBed::terminate(Status s){
         if(status == Status::Running){
             lamb->Stop();
-            status = Status::Invalid;
+            status = Status::Success;
         }
     }
 
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::Drink::update(){
-        lamb->water += 15;
-        if(lamb->water >= HP_STAT_FULL){
+        lamb->stats[water] += 30;
+        if(lamb->stats[water] > STAT_BAD)
             return Status::Success;
-        }
         return Status::Running;
     }
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::Eat::update(){
-        lamb->food += 15;
-        if(lamb->food >= HP_STAT_FULL)
+        lamb->stats[food] += 30;
+        if(lamb->stats[food] > STAT_BAD)
             return Status::Success;
         return Status::Running;
     }
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::Sleep::update(){
-        lamb->rest += 15;
-        if(lamb->rest >= HP_STAT_FULL)
+        lamb->stats[rest] += 5;
+        if(lamb->stats[rest] > STAT_BAD)
             return Status::Success;
         return Status::Running;
     }
 
+    void CFootBotLamb::Drink::terminate(Status s){
+            status = Status::Success;
+    }
+    void CFootBotLamb::Eat::terminate(Status s){
+            status = Status::Success;
+    }
+    void CFootBotLamb::Sleep::terminate(Status s){
+            status = Status::Success;
+    }
 
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::SelectRandomPos::update(){
         //TODO hardcoded el tamaño de la arena
-        lamb->random_pos = CVector2::ZERO;
-        // lamb->random_pos = CVector2(lamb->rng->Uniform(CRange<Real>(-3,3)),
-        //                     lamb->rng->Uniform(CRange<Real>(-3,3)));
+        lamb->random_pos = CVector2(lamb->rng->Uniform(CRange<Real>(-1.75,1.75)),
+                            lamb->rng->Uniform(CRange<Real>(-1.75,1.75)));
         return Status::Success;
     }
 
+    CFootBotLamb::NodeFootBot::Status CFootBotLamb::IsAtRandomPos::update(){
+        if(lamb->IsInPlace( lamb->random_pos)){
+            lamb->stats[walk] = STAT_FULL;
+            return Status::Success;
+        }
+        return Status::Failure;
+    }
 
     CFootBotLamb::NodeFootBot::Status CFootBotLamb::GoToRandomPos::update(){
         lamb->GoTo(lamb->random_pos);
@@ -116,13 +130,6 @@
     void CFootBotLamb::GoToRandomPos::terminate(Status s){
         if(status == Status::Running){
             lamb->Stop();
-            status = Status::Invalid;
+            status = Status::Success;
         }
     }
-
-
-CFootBotLamb::NodeFootBot::Status CFootBotLamb::IsAtRandomPos::update(){
-    if(lamb->IsInPlace( lamb->random_pos))
-        return Status::Success;
-    return Status::Failure;
-}

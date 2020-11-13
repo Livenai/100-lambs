@@ -118,21 +118,16 @@
   <!-- * Visualization * -->
   <!-- ****************** -->
   <visualization>
-    <!--
-        This shows how to add customized drawing in the world
-        using the qt user functions.
-        Check 'argos3 -q qt-opengl' for more help.
-    -->
-    <qt-opengl>
-      <user_functions library="build/loop_functions/lamb_loop_functions/liblamb_loop_functions"
-                      label="lamb_qtuser_functions" show_id="false"/>
+        <qt-opengl>
+            <user_functions library="build/loop_functions/lamb_loop_functions/liblamb_loop_functions"
+                          label="lamb_qtuser_functions" show_id="true"/>
 
-      <camera>
-          <placement idx="0" position="0,0,4.6" look_at="0,0,0" up="0,1,0" lens_focal_length="20" />
-          <placement idx="1" position="-2.18892,-0.137373,1.24533" look_at="-1.27845,-0.0728067,0.836844" up="0.407464,0.0288953,0.912764" lens_focal_length="20" />
-          <placement idx="1" position="0,0,0.8" look_at="0,0,0" up="0,1,0" lens_focal_length="20" />
-      </camera>
-    </qt-opengl>
-  </visualization>
+            <camera>
+                <placement idx="0" position="0,0,2.9" look_at="0,0,0" up="0,1,0" lens_focal_length="20" />
+                <placement idx="1" position="-2.18892,-0.137373,1.24533" look_at="-1.27845,-0.0728067,0.836844" up="0.407464,0.0288953,0.912764" lens_focal_length="20" />
+                <placement idx="1" position="0,0,0.8" look_at="0,0,0" up="0,1,0" lens_focal_length="20" />
+            </camera>
+        </qt-opengl>
+    </visualization>
 
 </argos-configuration>
