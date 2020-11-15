@@ -192,10 +192,11 @@ void CFootBotLamb::ControlStep() {
     PollMessages();
 
     if(show_debug){
-        RLOG <<"w: "<< stats[water]<<", f: "<<stats[food]<<", r: "<< stats[rest]
-        <<", walk: "<< stats[walk]<<"\n";
-        LOG<<"priority: "<<current_priority<<endl;
-        LOG<<"random_pos: "<<random_pos<<endl;
+        // RLOG <<"w: "<< stats[water]<<", f: "<<stats[food]<<", r: "<< stats[rest]
+        // <<", walk: "<< stats[walk]<<"\n";
+        // LOG<<"priority: "<<current_priority<<endl;
+        // LOG<<"random_pos: "<<random_pos<<endl;
+        RLOG << GetCorrectedPos()<<endl;
     }
 }
 
@@ -363,8 +364,12 @@ void CFootBotLamb::SetTroughs(){
     }
 }
 
-CVector3 CFootBotLamb::GetPos(){
-    return CVector3(pos.GetX(),pos.GetY(), 0);
+CVector2 CFootBotLamb::GetCorrectedPos(){
+
+    Real x = pos.GetX()*2000;
+    Real y = -pos.GetY()*2000;
+
+    return CVector2(x, y);
 }
 
 CVector3 CFootBotLamb::GetDirection(){

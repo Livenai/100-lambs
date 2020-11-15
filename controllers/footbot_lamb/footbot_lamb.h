@@ -108,6 +108,7 @@ public:
     void ShowDebugInformation(bool show);
     void static SetTroughs();
 
+    CVector2 GetCorrectedPos();
 private:
 
     void TurnLeft();
@@ -126,7 +127,6 @@ private:
     bool IsInPlace(CVector2 point);
     CVector2 GetClosestPoint(vector<CVector2> *targets);
 
-    CVector3 GetPos();
     CVector3 GetDirection();
 
     void static SetIdNum(CFootBotLamb* robot);

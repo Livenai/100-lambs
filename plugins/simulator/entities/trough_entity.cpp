@@ -11,7 +11,7 @@ namespace argos {
 CTroughEntity::CTroughEntity():
                 CComposableEntity(NULL),
                 m_pcEmbodiedEntity(NULL),
-                m_cSize(1.50,0.5,0.25),
+                m_cSize(1,0.5,0.25),
                 m_fMass(0.0f),
                 scale(1),
                 trough_type(WATER) {}
