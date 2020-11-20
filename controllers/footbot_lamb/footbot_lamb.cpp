@@ -131,6 +131,8 @@ void CFootBotLamb::Init(TConfigurationNode& t_node) {
 
 //TODO habría que reiniciar el arbol tambien
 void CFootBotLamb::Reset() {
+    pos_readings = pos_sens->GetReading();
+    pos = CVector2(pos_readings.Position.GetX(), pos_readings.Position.GetY());
     mess_count = 0;
     clear_message = false;
     // rb_act->ClearData();

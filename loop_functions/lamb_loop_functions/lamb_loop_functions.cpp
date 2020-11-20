@@ -4,32 +4,34 @@ CLambLoopFunctions::CLambLoopFunctions():
     bed_color(212,54,126),
     floor_color(CColor::GRAY70),
     log_interval(60),
-    number_logs(6){}
+    number_logs(0){}
 
 void CLambLoopFunctions::Init(TConfigurationNode& t_tree) {
     TConfigurationNode experiment_conf = GetNode(CSimulator::GetInstance().GetConfigurationRoot(), "framework");
     experiment_conf = GetNode(experiment_conf,"experiment");
     GetNodeAttribute(experiment_conf, "ticks_per_second", ticks_per_second);
 
-    GetNodeAttributeOrDefault(t_tree, "number_lambs_to_log", number_logs, number_logs);
     GetNodeAttributeOrDefault(t_tree, "log_interval", log_interval, log_interval);
     time = 1603889708.5339026;
 
     CSpace::TMapPerType robot_map = CSimulator::GetInstance().GetSpace().GetEntitiesByType("foot-bot");
-    CFootBotEntity *footbot;
-    auto it = robot_map.begin();
+    GetNodeAttributeOrDefault(t_tree, "number_lambs_to_log", number_logs, robot_map.size());
+    if(number_logs > robot_map.size())
+        number_logs = robot_map.size();
+
+    string sufixes[8] = {"Am", "Az", "Bl", "Li", "Na", "Ro", "Ve", "Ng"};
     char filename[80], log[80];
-    CVector2 pos;
+    auto it = robot_map.begin();
     for (UInt8 i = 0; i < number_logs; i++){
-        footbot = any_cast<CFootBotEntity*>(it->second);
-        CCI_Controller *controller = &(footbot->GetControllableEntity().GetController());
-        lambs.push_back( dynamic_cast<CFootBotLamb*>(controller) );
-        sprintf( filename,"tracking_logs/%s.json", controller->GetId().c_str());
+        CFootBotEntity *footbot = any_cast<CFootBotEntity*>(it->second);
+        CCI_Controller *lamb = &(footbot->GetControllableEntity().GetController());
+        lambs.push_back( dynamic_cast<CFootBotLamb*>(lamb) );
+        sprintf( filename,"tracking_logs/%s_%s.json", lamb->GetId().c_str(),sufixes[i%8].c_str());
         files.push_back(std::ofstream(filename, std::ios::trunc));
 
         //introduciendo la primera posicion
-        pos = lambs[i]->GetCorrectedPos();
-        sprintf( log,"{ \"%.0f\": {\"x\": %d, \"y\": %d}", time, (int)pos.GetX(), (int)pos.GetY() );
+        CVector2 pos = lambs[i]->GetCorrectedPos();
+        sprintf( log,"{ \"%.0f\": {\"x\": %d, \"y\": %d}", time, (int) pos.GetX(), (int) pos.GetY() );
         files[i]<<log;
 
         it ++;
