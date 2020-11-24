@@ -5,7 +5,7 @@
 #include <argos3/core/simulator/simulator.h>
 #include <argos3/core/simulator/space/space.h>//TODO puedo omitir el import?
 #include <argos3/core/utility/configuration/argos_configuration.h>
-#include "footbot_lamb.h"
+#include "lamb.h"
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
@@ -27,7 +27,7 @@ public:
     CColor GetFloorColor(const CVector2& floor_pos);
     void PostStep();
 private:
-    std::vector<CFootBotLamb*> lambs;
+    std::vector<CLamb*> lambs;
     std::vector<std::ofstream> files;
 
     // radio del circulo que representa la zona donde duermen las ovejas;

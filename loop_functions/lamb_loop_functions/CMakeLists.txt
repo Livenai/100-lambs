@@ -1,4 +1,4 @@
-include_directories(${CMAKE_SOURCE_DIR}/controllers/footbot_lamb)
+include_directories(${CMAKE_SOURCE_DIR}/controllers/lamb)
 add_library(lamb_loop_functions MODULE
   lamb_loop_functions.h
 lamb_loop_functions.cpp)

@@ -14,7 +14,7 @@ void CLambLoopFunctions::Init(TConfigurationNode& t_tree) {
     GetNodeAttributeOrDefault(t_tree, "log_interval", log_interval, log_interval);
     time = 1603889708.5339026;
 
-    CSpace::TMapPerType robot_map = CSimulator::GetInstance().GetSpace().GetEntitiesByType("foot-bot");
+    CSpace::TMapPerType robot_map = CSimulator::GetInstance().GetSpace().GetEntitiesByType("lamb-bot");
     GetNodeAttributeOrDefault(t_tree, "number_lambs_to_log", number_logs, robot_map.size());
     if(number_logs > robot_map.size())
         number_logs = robot_map.size();
@@ -23,9 +23,9 @@ void CLambLoopFunctions::Init(TConfigurationNode& t_tree) {
     char filename[80], log[80];
     auto it = robot_map.begin();
     for (UInt8 i = 0; i < number_logs; i++){
-        CFootBotEntity *footbot = any_cast<CFootBotEntity*>(it->second);
-        CCI_Controller *lamb = &(footbot->GetControllableEntity().GetController());
-        lambs.push_back( dynamic_cast<CFootBotLamb*>(lamb) );
+        CLambBotEntity *robot = any_cast<CLambBotEntity*>(it->second);
+        CCI_Controller *lamb = &(robot->GetControllableEntity().GetController());
+        lambs.push_back( dynamic_cast<CLamb*>(lamb) );
         sprintf( filename,"tracking_logs/%s_%s.json", lamb->GetId().c_str(),sufixes[i%8].c_str());
         files.push_back(std::ofstream(filename, std::ios::trunc));
 
@@ -42,7 +42,7 @@ void CLambLoopFunctions::Init(TConfigurationNode& t_tree) {
     TConfigurationNode arena_conf = GetNode(CSimulator::GetInstance().GetConfigurationRoot(), "arena");
     GetNodeAttribute(arena_conf, "radius", radius);
     GetNodeAttribute(arena_conf, "bed_pos", bed_pos);
-    CFootBotLamb::SetTroughs();
+    CLamb::SetTroughs();
 
     Reset();
 }

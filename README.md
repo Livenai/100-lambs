@@ -1,4 +1,6 @@
 Compilacion del proyecto:
+0) Es necesario haber instalado previamente argos3
+		https://www.argos-sim.info/core.php
 
 1) Creamos la carpeta build
 
@@ -16,11 +18,13 @@ Compilacion del proyecto:
 
 		make -j7
 
+5) Instalamos las entidades trough (comedero) y lambot(footbot personalizado)
+		sudo make install
 
 
-Ejecucion del proyecto:
+Ejecucion del proyecto desde la carpeta 100_lambs:
 
-	argos3 -c 100_lambs.argos
+	argos3 -c experiments/50_lambs.argos
 
 ó
 

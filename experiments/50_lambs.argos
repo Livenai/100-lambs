@@ -16,8 +16,7 @@
   <!-- *************** -->
   <controllers>
 
-    <footbot_lamb_controller id="lc"
-                            library="build/controllers/footbot_lamb/libfootbot_lamb">
+    <lamb_controller id="lc" library="build/controllers/lamb/liblamb">
       <actuators>
           <!-- <radios implementation="default" /> -->
             <range_and_bearing implementation="default" />
@@ -27,11 +26,11 @@
       <sensors>
             <!-- <radios implementation="default" medium="radios" /> -->
             <range_and_bearing implementation="medium" medium="rab" show_rays="false"/>
-            <footbot_proximity implementation="default" show_rays="false" />
+            <lambbot_proximity implementation="default" show_rays="false" />
             <positioning implementation="default" />
       </sensors>
       <params linear_speed="30" rot_speed="15" ping_interval="0.5" hp_dec_interval="1" alpha="3" beta="1"/>
-  </footbot_lamb_controller>
+  </lamb_controller>
 
   </controllers>
 
@@ -66,16 +65,16 @@
       <position method="uniform" min="0,-2,0" max="2,0,0" />
       <orientation method="gaussian" mean="0,0,0" std_dev="360,0,0" />
       <entity quantity="50" max_trials="500">
-        <foot-bot id="lamb_" rab_data_size="26" rab_range="2.5" proxi_range="0.25">
+        <lamb-bot id="lamb_" rab_data_size="26" rab_range="2.5" proxi_range="0.25">
           <controller config="lc" />
-        </foot-bot>
+      </lamb-bot>
       </entity>
     </distribute>
 
-    <!-- <foot-bot id="lamb_0" rab_data_size="26" rab_range="2.5" proxi_range="0.25">
+    <!-- <lamb-bot id="lamb_0" rab_data_size="26" rab_range="2.5" proxi_range="0.25">
         <body position="1,-1,0" orientation="90,0,0" />
         <controller config="lc"/>
-    </foot-bot> -->
+    </lamb-bot> -->
 
     <trough id="water0" scale="0.5" type="water">
         <body position="0.25,-3.29,0" orientation="0,0,0" />
