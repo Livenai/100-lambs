@@ -9,10 +9,12 @@
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
+#define BOOST_FILESYSTEM_NO_DEPRECATED
+#include <boost/filesystem.hpp>
 
 
 using namespace argos;
-
+namespace fs = boost::filesystem;
 class CLambLoopFunctions : public CLoopFunctions {
 
 public:

@@ -15,9 +15,12 @@ void CLambLoopFunctions::Init(TConfigurationNode& t_tree) {
     time = 1603889708.5339026;
 
     CSpace::TMapPerType robot_map = CSimulator::GetInstance().GetSpace().GetEntitiesByType("lamb-bot");
-    GetNodeAttributeOrDefault(t_tree, "number_lambs_to_log", number_logs, robot_map.size());
+    GetNodeAttributeOrDefault(t_tree, "number_of_logs", number_logs, robot_map.size());
     if(number_logs > robot_map.size())
         number_logs = robot_map.size();
+    fs::path dir("tracking_logs");
+    if(number_logs > 0 && !fs::exists(dir))
+        fs::create_directory(dir);
 
     string sufixes[8] = {"Am", "Az", "Bl", "Li", "Na", "Ro", "Ve", "Ng"};
     char filename[80], log[80];
@@ -28,8 +31,9 @@ void CLambLoopFunctions::Init(TConfigurationNode& t_tree) {
         lambs.push_back( dynamic_cast<CLamb*>(lamb) );
         sprintf( filename,"tracking_logs/%s_%s.json", lamb->GetId().c_str(),sufixes[i%8].c_str());
         files.push_back(std::ofstream(filename, std::ios::trunc));
-
         //introduciendo la primera posicion
+        //TODO guardo la posicion sin decimales porque la configuracion de region pone una coma en vez
+        // de un punto. No importa mucho porque está en milimetros
         CVector2 pos = lambs[i]->GetCorrectedPos();
         sprintf( log,"{ \"%.0f\": {\"x\": %d, \"y\": %d}", time, (int) pos.GetX(), (int) pos.GetY() );
         files[i]<<log;
