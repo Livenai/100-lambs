@@ -32,8 +32,8 @@ void CLambLoopFunctions::Init(TConfigurationNode& t_tree) {
         sprintf( filename,"tracking_logs/%s_%s.json", lamb->GetId().c_str(),sufixes[i%8].c_str());
         files.push_back(std::ofstream(filename, std::ios::trunc));
         //introduciendo la primera posicion
-        //TODO guardo la posicion sin decimales porque la configuracion de region pone una coma en vez
-        // de un punto. No importa mucho porque está en milimetros
+        //TODO el tiempo sin decimales porque la configuración local del ordenador introduce una coma
+        // en lugar de un punto y deja de funcionar el json
         CVector2 pos = lambs[i]->GetCorrectedPos();
         sprintf( log,"{ \"%.0f\": {\"x\": %d, \"y\": %d}", time, (int) pos.GetX(), (int) pos.GetY() );
         files[i]<<log;

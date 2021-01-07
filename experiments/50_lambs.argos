@@ -41,7 +41,9 @@
   <!-- *********************** -->
   <!-- * Arena configuration * -->
   <!-- *********************** -->
-  <!-- escala 1:2 -->
+  <!-- El tamaño y el centro de la arena son estos para que los logs coincidan con
+  los datos de las ovejas reales -->
+  <!-- escala 1:2  por el tamaño de los robots actualmente-->
   <arena size="3.3, 4.33,1" center="1.65,-1.245,0.5"
       radius="0.5" bed_pos="1,-1"  >
       <!-- Pinta un circulo en el suelo que representan la cama definida en la etiqueta arena -->
