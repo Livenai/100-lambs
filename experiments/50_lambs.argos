@@ -125,12 +125,11 @@
         <qt-opengl>
             <user_functions library="build/loop_functions/lamb_qtuser_functions/liblamb_qtuser_functions"
                           label="lamb_qtuser_functions" show_id="true"/>
-            <camera>
-                <placement idx="0" position="1.65,-1.65,3.5" look_at="1.65, -1.65, 0" up="0,1,0" lens_focal_length="20" />
-
-                <placement idx="1" position="-2.18892,-0.137373,1.24533" look_at="-1.27845,-0.0728067,0.836844" up="0.407464,0.0288953,0.912764" lens_focal_length="20" />
-                <placement idx="1" position="0,0,0.8" look_at="0,0,0" up="0,1,0" lens_focal_length="20" />
-            </camera>
+            <camera> <placements>
+              <placement index="0" position="1.65,-1.245, 12" 
+                look_at="1.65,-1.245, 0"
+                up="0, 1,0" lens_focal_length="65" />
+            </placements> </camera>
         </qt-opengl>
     </visualization>
 

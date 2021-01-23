@@ -1,3 +1,6 @@
 build/
 video/
 tracking_logs*
+logs_analysed/
+
+__pycache__
