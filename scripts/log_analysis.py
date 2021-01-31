@@ -5,7 +5,7 @@ from os import makedirs , path
 import numpy as np
 from math import trunc
 # from datetime import datetime
-from geometry.geometry import *
+from geometry import *
 
 class Entry:
 
@@ -148,6 +148,11 @@ class Log():
             if e.duration >= time_threshold and e.state == '':
                 e.state = "durmiendo"
 
+
+    def _calc_walk(self):
+        for e in self.entries:
+            if e.state == '':
+                e.state = 'caminando'
     """
     Estadisticas referentes a la actividad de comer, beber y dormir
     Depende del resultado de _calc_forage()
@@ -212,13 +217,11 @@ class Log():
 
     def individual_analisys(self):
         # comederos y bebederos representados por rectangulos
-        # TODO revisar las posiciones y tamaño
-        water_pos = [Point( 500, 6580), Point(7100, 6580)]
-        food_pos= [Point(1640, 6580), Point(2780, 6580),
-                        Point(4920, 6580), Point(5060, 6580)]
+        water_pos = [Point( 500, 6580), Point(6100, 6580)]
+        food_pos= [Point(3300, 6580)]
 
         water = [Rectangle(p, 1000, 500) for p in water_pos]
-        food = [Rectangle(p, 1000, 500) for p in food_pos]
+        food = [Rectangle(p, 4500, 500) for p in food_pos]
 
         # el orden en que se llaman estas funciones es relevante porque modifican
         # el log poco a poco, por eso son "privadas" y se llaman desde este metodo
@@ -228,6 +231,7 @@ class Log():
         self._states_stats()
         self._displacement_stats()
 
+        self._calc_walk()
         self.save('logs_analysed/' + l.name)
 
 

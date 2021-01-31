@@ -1,12 +1,14 @@
 #! /usr/bin/env python3
-from geometry.geometry import *
+from geometry import *
 from ui_test import Ui_MainWindow
 from PyQt5 import QtWidgets
-from PyQt5.QtGui import QPen, QBrush, QColor, QFont
+from PyQt5.QtGui import QPen, QBrush, QColor, QFont, QPainter, QImage
 from PyQt5.Qt import Qt
+from text_background import QGraphicsTextItemWithBackground
 
 import sys
 from random import Random
+
 
 class mywindow(QtWidgets.QMainWindow):
 
@@ -14,6 +16,7 @@ class mywindow(QtWidgets.QMainWindow):
         super(mywindow, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+        # TODO deberia crear self.ui.canvas aqui
 
         self.dotSize = 5
         self.borderSize = 3
@@ -23,6 +26,12 @@ class mywindow(QtWidgets.QMainWindow):
         self.penOrange = QPen(QColor( 243, 156, 18 ), self.borderSize)
         self.brushWhite = QBrush(Qt.white)
         self.r = Random()
+
+        rec = self.ui.canvas.sceneRect()
+        self.image = QImage(int(rec.width()),int(rec.height()),QImage.Format_RGB32)
+        # self.image.fill(0)
+        self.painter = QPainter(self.image);
+        self.painter.setRenderHint(QPainter.Antialiasing);
 
     def generatePoints(self, num):
         abc = 'abcdefghijklmnopqrstuvwxyz'
@@ -117,13 +126,24 @@ class mywindow(QtWidgets.QMainWindow):
                 circle = self.ui.canvas.addEllipse(-c.radius, -c.radius, c.radius*2, c.radius*2 , self.penOrange)
                 circle.setPos(c.center.x, -c.center.y)
 
+    def snapshot(self, filename = "untitled"):
+        self.ui.canvas.render(self.painter);
+        self.image.save(filename+".png")
+
+    def test_text(self):
+        t = QGraphicsTextItemWithBackground("Hola")
+        t.setPos(0,0)
+        self.ui.canvas.addItem(t)
 
 if __name__ == "__main__":
 
     app = QtWidgets.QApplication([])
     application = mywindow()
     application.show()
-    application.test_minCircle(10)
+    application.test_text()
+    # application.test_minCircle(4)
+    # application.snapshot("1")
+    # application.test_intersections()
     # application.test_intersections()
     # application.test_rectangles_distance(5)
     sys.exit(app.exec())
