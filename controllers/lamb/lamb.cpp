@@ -7,7 +7,6 @@
 UInt8 CLamb::id_counter = 0;
 vector<CVector2> CLamb::water_troughs;
 vector<CVector2> CLamb::food_troughs;
-// vector<CVector2> CLamb::beds;
 
 CLamb::CLamb() :
     wheels_act(NULL),
@@ -19,18 +18,19 @@ CLamb::CLamb() :
     alpha(2),
     beta(0.5),
     ping_interval(3),
-    hp_interval(1),
     bt_interval(0.5),
     show_debug(false),
-    random_pos()
+    threshold_distance(0.5),
+    random_pos(),
+    bed_pos()
     {
         CLamb::SetIdNum(this);
         rng = CRandom::CreateRNG( "argos" );
 
         colors[water]  = CColor::BLUE;
         colors[food]   = CColor::RED;
-        colors[rest]   = CColor::MAGENTA;
-        colors[social] = CColor::GREEN;
+        colors[rest]   = CColor::GREEN;
+        colors[social] = CColor::MAGENTA;
         colors[walk]   = CColor::YELLOW;
 }
 
@@ -59,14 +59,9 @@ void CLamb::Init(TConfigurationNode& t_node) {
    //Configuracion de la arena:
    //posicion de el agua, la comida y la cama
    TConfigurationNode arena_conf = GetNode(CSimulator::GetInstance().GetConfigurationRoot(), "arena");
-   //TODO comprobar valores de los parametros
-   GetNodeAttribute(arena_conf, "radius", radius);
 
-   //FIXME la cama se configura aqui pero los comederos y bebederos en otro sitio
-   //puede paracer poco organizado
-   CVector2 bed_pos;
+   //TODO eliminar el concepto de bed_pos,
    GetNodeAttribute(arena_conf, "bed_pos", bed_pos);
-   beds.push_back(bed_pos);
 
    // Configuracion del controller
    GetNodeAttributeOrDefault(t_node, "linear_speed", speed, speed);
@@ -74,17 +69,17 @@ void CLamb::Init(TConfigurationNode& t_node) {
    GetNodeAttributeOrDefault(t_node, "beta", beta, beta);
    GetNodeAttributeOrDefault(t_node, "ping_interval", ping_interval, ping_interval);
    ping_interval *= ticks_per_second;
-   GetNodeAttributeOrDefault(t_node, "hp_dec_interval", hp_interval, hp_interval);
-   hp_interval *= ticks_per_second;
    GetNodeAttributeOrDefault(t_node, "bt_interval", bt_interval, bt_interval);
    bt_interval *= ticks_per_second;
+   GetNodeAttributeOrDefault(t_node, "threshold_distance", threshold_distance, threshold_distance);
 
    //configuracion del arbol de comportamiento
+   UInt32 seed = rng->Uniform(CRange<UInt32>(0,10000));
    bt = BrainTree::Builder()
-                    .composite<BrainTree::ActiveSelector>()
+                    .composite<BrainTree::RandomWeightedSelector>((double *)&transition_matrix, 4, seed)
                         // Secuencia para beber
                         .composite<BrainTree::Sequence>()
-                            .leaf<NeedWater>(this) //Tiene sed?
+                            .leaf<SetLedColor>(this, water)
                             .composite<BrainTree::ActiveSelector>()
                                 .composite<BrainTree::Sequence>()
                                     .leaf<CanDrink>(this)//esta al lado del bebedero
@@ -95,7 +90,7 @@ void CLamb::Init(TConfigurationNode& t_node) {
                         .end()//Fin de sequencia para beber
                         // Secuencia para comer
                         .composite<BrainTree::Sequence>()
-                            .leaf<NeedFood>(this) //Tiene hambre?
+                            .leaf<SetLedColor>(this, food)
                             .composite<BrainTree::ActiveSelector>()
                                 .composite<BrainTree::Sequence>()
                                     .leaf<CanEat>(this)//esta al lado del comedero
@@ -106,16 +101,17 @@ void CLamb::Init(TConfigurationNode& t_node) {
                         .end()//Fin de sequencia para comer
                         // Secuencia para dormir
                         .composite<BrainTree::Sequence>()
-                            .leaf<NeedRest>(this) //Tiene sueño?
+                            .leaf<SetLedColor>(this, rest)
                             .composite<BrainTree::ActiveSelector>()
                                 .composite<BrainTree::Sequence>()
-                                    .leaf<CanSleep>(this)//esta al lado de la cama?
-                                    .leaf<Sleep>(this)
+                                    .leaf<CanRest>(this)//esta al lado de la cama?
+                                    .leaf<Rest>(this)
                                 .end()
-                                .leaf<GoToBed>(this)
+                                .leaf<GoToRest>(this)
                             .end()
                         .end()//Fin de sequencia para dormir
                         .composite<BrainTree::Sequence>()//sequencia para pasear
+                            .leaf<SetLedColor>(this, walk)
                             .leaf<SelectRandomPos>(this)
                             .composite<BrainTree::ActiveSelector>()
                                 .leaf<IsAtRandomPos>(this)
@@ -129,7 +125,7 @@ void CLamb::Init(TConfigurationNode& t_node) {
 }
 
 
-//TODO habría que reiniciar el arbol tambien
+//TODO habría que reiniciar el arbol tambien?
 void CLamb::Reset() {
     pos_readings = pos_sens->GetReading();
     pos = CVector2(pos_readings.Position.GetX(), pos_readings.Position.GetY());
@@ -137,13 +133,12 @@ void CLamb::Reset() {
     clear_message = false;
     // rb_act->ClearData();
     ping_timer = ping_interval;
-    hp_timer = hp_interval;
     bt_timer = (id_num%(UInt8)bt_interval)+1;
 
     neightbors.clear();
 
     for(Stat_type s: {water, food, rest, social})
-        stats[s] = rng->Uniform(CRange<UInt32>(0,STAT_FULL));
+        stats[s] = 0;
 
 }
 
@@ -165,23 +160,13 @@ void CLamb::ControlStep() {
 
     //actualizacion del arbol de decision
     if(--bt_timer <=0){
-        UpdatePriority();
         bt.update();
         bt_timer = bt_interval;
     }
 
-    //decremento de los HP
-    if(--hp_timer <=0){
-        if (stats[water]  > 0)  stats[water]  --;
-        if (stats[food]   > 0)  stats[food]   --;
-        if (stats[rest]   > 0)  stats[rest]   --;
-        if (stats[social] > 0)  stats[social] --;
-        if (stats[walk]   > 0)  stats[walk]   --;
-        hp_timer = hp_interval;
-    }
 
-    //FIXME pone a 0 el mensaje de salida, es un apaño,
-    //no soy capaz de que deje de enviarse en cada step
+    //Pone a 0 el mensaje de salida despues de que se halla enviado
+    //Es un apaño, no soy capaz de que deje de enviarse en cada step
     if(clear_message){
         rb_act->ClearData();
         clear_message = false;
@@ -194,11 +179,11 @@ void CLamb::ControlStep() {
     PollMessages();
 
     if(show_debug){
-        // RLOG <<"w: "<< stats[water]<<", f: "<<stats[food]<<", r: "<< stats[rest]
-        // <<", walk: "<< stats[walk]<<"\n";
-        // LOG<<"priority: "<<current_priority<<endl;
+        RLOG <<"w: "<< stats[water]<<", f: "<<stats[food]<<", r: "<< stats[rest]
+        <<", walk: "<< stats[walk]<<"\n";
+        LOG<<"priority: "<<current_state<<endl;
         // LOG<<"random_pos: "<<random_pos<<endl;
-        RLOG << GetCorrectedPos()<<endl;
+        // RLOG << GetCorrectedPos()<<endl;
     }
 }
 
@@ -287,7 +272,12 @@ CVector2 CLamb::CalculateDirection(CVector2 target){
 }
 
 
-void CLamb::GoTo(CVector2 target) {
+// TODO añadir giros mas pequeños para prevenir oscilacion?
+void CLamb::GoToPoint(CVector2 target) {
+    if(show_debug){
+        LOG<<"POS:"<< pos<<endl;
+        LOG<<"TARGET POS:"<< target<<endl;
+    }
     CVector2  v = CalculateDirection(target);
     CRadians angle_remaining = (v.Angle() - rot.z).SignedNormalize();
 
@@ -305,49 +295,39 @@ void CLamb::GoTo(CVector2 target) {
         MoveForward();
 }
 
-/****************************************/
-/****************************************/
-
-void CLamb::UpdatePriority(){
-
-    if( stats[current_priority] >= STAT_FULL ||
-        (stats[walk] <= STAT_CRITIC && stats[current_priority] > STAT_HIGH)){
-        current_priority = walk;
-    }
-
-    for(Stat_type s : {water, food, rest}){
-        if( stats[s] <= STAT_BAD){
-            current_priority = s;
-            break;
-        }
-    }
-
-    for(Stat_type s : {water, food, rest}){
-        if( stats[s] <= STAT_CRITIC){
-            current_priority = s;
-            break;
-        }
-    }
-
-    leds->SetAllColors(colors[current_priority]);
+//FIXME calcular como distancia de un punto a un rectangulo
+Real CLamb::distanceToTrough(CVector2 trough){
+    return (pos - trough).Length();
 }
 
-//FIXME muy cutrillo
-bool CLamb::IsInPlace(CVector2 target){
-    Real dis = (pos - target).Length();
-    return dis < radius;
+Real CLamb::distanceToPoint(CVector2 point){
+    return (pos - point).Length();
 }
 
 
-CVector2 CLamb::GetClosestPoint(vector<CVector2> *targets){
+CVector2 CLamb::GetClosestTrough(Stat_type stat){
+    vector<CVector2> *targets;
+    if (stat == water)
+        targets = &water_troughs;
+    else
+        targets = &food_troughs;
+
     CVector2 closest = (*targets)[0];
     Real min = (closest - pos).Length();
     for(auto t: *targets){
         if((t - pos).Length() < min)
             closest = t;
     }
-    current_target = closest;
+    if(show_debug)
+        LOG<<"CLOSEST_POS: "<<closest<<endl;
+
     return closest;
+}
+
+//TODO más adelante devolvera la posicion mas cercana donde haya visto dormir a
+//otro cordero
+CVector2 CLamb::GetClosestRestingPlace(){
+    return bed_pos;
 }
 
 
@@ -366,6 +346,7 @@ void CLamb::SetTroughs(){
     }
 }
 
+//Convierte las cordenadas de la arena en las del corral
 CVector2 CLamb::GetCorrectedPos(){
 
     Real x = pos.GetX()*2000;
@@ -374,9 +355,6 @@ CVector2 CLamb::GetCorrectedPos(){
     return CVector2(x, y);
 }
 
-CVector3 CLamb::GetDirection(){
-    return CVector3(0,1,0);
-}
 
 void CLamb::Destroy(){
     CLamb::id_counter --;

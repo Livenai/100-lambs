@@ -9,6 +9,7 @@
 #include <string>
 #include <unordered_map>
 #include <cassert>
+#include <random>
 
 namespace BrainTree
 {
@@ -574,23 +575,72 @@ public:
     }
 };
 
-//Selector Activo, en cada ciclo que se ejecuta comprueba todas las ramas en orden y
-//si puede ejecutar alguna anterior a la que se este ejecutando ahora cancela la actual
+//Selector Activo, en cada ciclo que se ejecuta comprueba todas las ramas en orden y,
+//si puede ejecutar alguna anterior a la que se este ejecutando ahora, cancela la actual
 class ActiveSelector : public Selector
 {
 public:
     Status update() override
     {
+      // TODO quitar el assert?
         assert(hasChildren() && "Composite has no children");
 
         auto prev = it;
         it = children.begin(); //Selector::initialize();
         auto status = Selector::update();
         if (it != children.end() && it != prev)
-            (*prev)->terminate(status);
+            (*prev)->terminate(Status::Invalid);
 
         return status;
     }
+};
+
+class RandomWeightedSelector: public Selector
+{
+public:
+    // TODO comprobar que el tamaño de la matriz es congruente con el numero de nodos
+    //TODO calcular el tamaño de la matriz en lugar de introducirlo como parametro
+    RandomWeightedSelector(double * transition_matrix, int num_nodes, int seed):
+        transition_matrix(transition_matrix),
+        num_nodes(num_nodes),
+        last_node(1),
+        distribution (0.0,1.0){
+        generator = std::default_random_engine(seed);
+    }
+
+    void initialize() override
+    {
+        it = choose();
+    }
+
+    Status update() override
+    {
+      // TODO quitar el assert?
+      assert(hasChildren() && "Composite has no children");
+
+      return (*it)->tick();
+
+  }
+
+private:
+    std::vector<Node::Ptr>::iterator choose(){
+        // TODO repasar y comentar
+        double x = distribution(generator);
+        double acum = 0.0f;
+        int index = -1;
+        while (acum <= x){
+            index ++;
+            acum += transition_matrix[last_node*num_nodes +index];
+        }
+        last_node = index;
+
+        return children.begin()+index;
+    }
+    double * transition_matrix;
+    int num_nodes;
+    int last_node;
+    std::uniform_real_distribution<double> distribution;
+    std::default_random_engine generator;
 };
 
 } // namespace BrainTree

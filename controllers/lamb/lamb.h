@@ -34,14 +34,8 @@
 #define CODE_PING 1
 #define CODE_PING_REPLY 2
 
-#define STAT_FULL 1000
-#define STAT_HIGH 700
-#define STAT_BAD 400
-#define STAT_CRITIC 100
-
 //en radianes
 #define ANGLE_THRESHOLD 0.0523
-#define NUM_SAMPLE_POINTS 24
 
 /*
  * All the ARGoS stuff in the 'argos' namespace.
@@ -118,18 +112,15 @@ private:
     void PollMessages();
 
     CVector2 CalculateDirection(CVector2 target);
-    void GoTo(CVector2 target);
+    void GoToPoint(CVector2 target);
 
-    void UpdatePriority();
-    bool IsInPlace(CVector2 point);
-    CVector2 GetClosestPoint(vector<CVector2> *targets);
+    Real distanceToPoint(CVector2 point);
+    Real distanceToTrough(CVector2 trough);
 
-    CVector3 GetDirection();
+    CVector2 GetClosestTrough(Stat_type stat);
+    CVector2 GetClosestRestingPlace();
 
     void static SetIdNum(CLamb* robot);
-
-    Real proxi_limit;
-    Real robot_radius;
 
     /* Generador de números aleatorios */
     CRandom::CRNG*  rng;
@@ -137,12 +128,11 @@ private:
     static UInt8 id_counter;
     UInt8 id_num;
 
-    //TODO tratar las camas de la misma forma que los comederos y bebederos
-    //static y obteniendo la posicion de la misma forma
+    //TODO eliminar las variables static?
     static vector<CVector2> water_troughs;
     static vector<CVector2> food_troughs;
-    vector<CVector2> beds;
     CVector2 random_pos;
+    CVector2 bed_pos;
 
 
     /* Pointer to sensors and actuator */
@@ -155,13 +145,14 @@ private:
 
     Real speed;
 
-    //parametros de para Artificial Potential Fields
+    //parametros de Artificial Potential Fields
     Real alpha, beta;
 
+    Real threshold_distance;
 
-    //variables para calcular cuando se hace ping o se decrementan los HP(health points)
-    Real ping_interval, hp_interval, bt_interval;
-    Real ping_timer, hp_timer, bt_timer;
+    //intervalos y timers para regular el ritmo de ejecución
+    Real ping_interval, bt_interval;
+    Real ping_timer, bt_timer;
 
     UInt8 mess_count;
     bool clear_message;//bandera
@@ -170,18 +161,20 @@ private:
     CVector2 pos;
     EulerRotation rot;
 
-    //Puntos de salud o HP
     map<Stat_type, UInt32> stats;
-    //TODO comentar y ordenar
-    Stat_type current_priority;
 
-    CVector2 current_target;
-
-    Real radius;
+    Stat_type current_state;
 
     BrainTree::BehaviorTree bt;
     bool show_debug;
     map<Stat_type, CColor> colors;
+
+    //FIXME está hardcoded, puede que esté bien asi
+    //Es importante que cada fila sume 1 exactamente
+    double transition_matrix[4][4] = {{0.25, 0.05, 0.05, 0.65},
+                                    {0.01, 0.41, 0.20, 0.38},
+                                    {0.05, 0.30, 0.05, 0.60},
+                                    {0.10, 0.10, 0.05, 0.75}};
 
     /****************************************************/
 
@@ -189,6 +182,7 @@ private:
     CCI_LambBotProximitySensor::TReadings proxi_readings;
 
     /****************************************************/
+    // TODO mover declaracion de nodos a otro header
     //Clases privadas que representan comportamientos en el behavior tree
     class NodeLamb: public BrainTree::Node{
     protected:
@@ -200,14 +194,14 @@ private:
     };
 
     //Varias definiciones de clases similares mediante un MACRO
-    #define NODE_0_DECLARATION(NODE_NAME) \
+    #define NODE_DECLARATION_0(NODE_NAME) \
     class NODE_NAME: public NodeLamb{\
         public:    \
         NODE_NAME(CLamb * lamb):NodeLamb(lamb){}\
         Status update() override;\
     };
 
-    #define NODE_1_DECLARATION(NODE_NAME) \
+    #define NODE_DECLARATION_1(NODE_NAME) \
     class NODE_NAME: public NodeLamb{\
         public:    \
         NODE_NAME(CLamb * lamb):NodeLamb(lamb){}\
@@ -215,29 +209,47 @@ private:
         void terminate(Status s) override;\
     };
 
-    NODE_0_DECLARATION(NeedWater)
-    NODE_0_DECLARATION(CanDrink)
-    NODE_1_DECLARATION(GoToWater)
-    NODE_1_DECLARATION(Drink)
+    #define NODE_DECLARATION_2(NODE_NAME) \
+    class NODE_NAME: public NodeLamb{\
+        public:    \
+        NODE_NAME(CLamb * lamb):NodeLamb(lamb){}\
+        void initialize() override;\
+        Status update() override;\
+    };
 
-    NODE_0_DECLARATION(NeedFood)
-    NODE_0_DECLARATION(CanEat)
-    NODE_1_DECLARATION(GoToFood)
-    NODE_1_DECLARATION(Eat)
-
-    NODE_0_DECLARATION(NeedRest)
-    NODE_0_DECLARATION(CanSleep)
-    NODE_1_DECLARATION(GoToBed)
-    NODE_1_DECLARATION(Sleep)
-
-    NODE_0_DECLARATION(SelectRandomPos)
-    NODE_0_DECLARATION(IsAtRandomPos)
-    NODE_1_DECLARATION(GoToRandomPos)
+    #define NODE_DECLARATION_3(NODE_NAME) \
+    class NODE_NAME: public NodeLamb{\
+        public:    \
+        NODE_NAME(CLamb * lamb, Stat_type stat):NodeLamb(lamb),stat(stat){}\
+        Status update() override;\
+        private:    \
+        Stat_type stat; \
+    };
 
 
+    NODE_DECLARATION_0(CanDrink)
+    NODE_DECLARATION_1(GoToWater)
+    NODE_DECLARATION_2(Drink)
 
-    #undef NODE_0_DECLARATION
-    #undef NODE_1_DECLARATION
+    NODE_DECLARATION_0(CanEat)
+    NODE_DECLARATION_1(GoToFood)
+    NODE_DECLARATION_2(Eat)
+
+    NODE_DECLARATION_0(CanRest)
+    NODE_DECLARATION_1(GoToRest)
+    NODE_DECLARATION_2(Rest)
+
+    NODE_DECLARATION_0(SelectRandomPos)
+    NODE_DECLARATION_0(IsAtRandomPos)
+    NODE_DECLARATION_1(GoToRandomPos)
+
+    NODE_DECLARATION_3(SetLedColor)
+
+
+    #undef NODE_DECLARATION_0
+    #undef NODE_DECLARATION_1
+    #undef NODE_DECLARATION_2
+    #undef NODE_DECLARATION_3
 
 
 };

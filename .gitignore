@@ -2,5 +2,6 @@ build/
 video/
 tracking_logs*
 logs_analysed/
-
+figures/
+transition_matrix.json
 __pycache__
