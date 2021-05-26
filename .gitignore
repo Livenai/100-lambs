@@ -1,5 +1,6 @@
 build/
 video/
+log*
 tracking_logs*
 logs_analysed/
 figures/

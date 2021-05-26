@@ -18,7 +18,7 @@ void CLambLoopFunctions::Init(TConfigurationNode& t_tree) {
     GetNodeAttributeOrDefault(t_tree, "number_of_logs", number_logs, robot_map.size());
     if(number_logs > robot_map.size())
         number_logs = robot_map.size();
-    fs::path dir("tracking_logs");
+    fs::path dir("logs");
     if(number_logs > 0 && !fs::exists(dir))
         fs::create_directory(dir);
 
@@ -29,7 +29,7 @@ void CLambLoopFunctions::Init(TConfigurationNode& t_tree) {
         CLambBotEntity *robot = any_cast<CLambBotEntity*>(it->second);
         CCI_Controller *lamb = &(robot->GetControllableEntity().GetController());
         lambs.push_back( dynamic_cast<CLamb*>(lamb) );
-        sprintf( filename,"tracking_logs/%s_%s.json", lamb->GetId().c_str(),sufixes[i%8].c_str());
+        sprintf( filename,"logs/%s_%s.json", lamb->GetId().c_str(),sufixes[i%8].c_str());
         files.push_back(std::ofstream(filename, std::ios::trunc));
         //introduciendo la primera posicion
         //TODO el tiempo sin decimales porque la configuración local del ordenador introduce una coma

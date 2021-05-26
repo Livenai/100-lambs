@@ -14,10 +14,11 @@ CLamb::CLamb() :
     pos_sens(NULL),
     rb_sens(NULL),
     rb_act(NULL),
-    speed(2.5f),
+    max_vel(30.0f),
+    rot_vel(15.0f),
+    speed_factor(1),
     alpha(2),
     beta(0.5),
-    ping_interval(3),
     bt_interval(0.5),
     show_debug(false),
     threshold_distance(0.5),
@@ -64,11 +65,10 @@ void CLamb::Init(TConfigurationNode& t_node) {
    GetNodeAttribute(arena_conf, "bed_pos", bed_pos);
 
    // Configuracion del controller
-   GetNodeAttributeOrDefault(t_node, "linear_speed", speed, speed);
+   GetNodeAttributeOrDefault(t_node, "velocity", max_vel, max_vel);
+   GetNodeAttributeOrDefault(t_node, "rot_velocity", rot_vel, rot_vel);
    GetNodeAttributeOrDefault(t_node, "alpha", alpha, alpha);
    GetNodeAttributeOrDefault(t_node, "beta", beta, beta);
-   GetNodeAttributeOrDefault(t_node, "ping_interval", ping_interval, ping_interval);
-   ping_interval *= ticks_per_second;
    GetNodeAttributeOrDefault(t_node, "bt_interval", bt_interval, bt_interval);
    bt_interval *= ticks_per_second;
    GetNodeAttributeOrDefault(t_node, "threshold_distance", threshold_distance, threshold_distance);
@@ -114,9 +114,10 @@ void CLamb::Init(TConfigurationNode& t_node) {
                             .leaf<SetLedColor>(this, walk)
                             .leaf<SelectRandomPos>(this)
                             .composite<BrainTree::ActiveSelector>()
-                                .leaf<IsAtRandomPos>(this)
-                                .leaf<GoToRandomPos>(this)
+                                .leaf<IsAtRandomPosition>(this)
+                                .leaf<Walk>(this)
                             .end()
+                            .leaf<Wait>(this)
                         .end()//Fin de la sequencia para pasear
                     .end()
                 .build();
@@ -132,13 +133,8 @@ void CLamb::Reset() {
     mess_count = 0;
     clear_message = false;
     // rb_act->ClearData();
-    ping_timer = ping_interval;
+    //cada tick de la simulacion solo los individuos cuyo timer haya llegado a 0 ejecutaran el BT
     bt_timer = (id_num%(UInt8)bt_interval)+1;
-
-    neightbors.clear();
-
-    for(Stat_type s: {water, food, rest, social})
-        stats[s] = 0;
 
 }
 
@@ -164,98 +160,80 @@ void CLamb::ControlStep() {
         bt_timer = bt_interval;
     }
 
-
-    //Pone a 0 el mensaje de salida despues de que se halla enviado
-    //Es un apaño, no soy capaz de que deje de enviarse en cada step
-    if(clear_message){
-        rb_act->ClearData();
-        clear_message = false;
-    }
-
-    if(--ping_timer <=0){
-        Ping();
-        ping_timer = ping_interval;
-    }
+    SendPosition();
     PollMessages();
 
     if(show_debug){
+        // RLOG<<rot.z.GetValue()<<std::endl;
+
+    //     //Esto tiene menos sentido ahora
         RLOG <<"w: "<< stats[water]<<", f: "<<stats[food]<<", r: "<< stats[rest]
         <<", walk: "<< stats[walk]<<"\n";
         LOG<<"priority: "<<current_state<<endl;
-        // LOG<<"random_pos: "<<random_pos<<endl;
-        // RLOG << GetCorrectedPos()<<endl;
+    //     // LOG<<"random_pos: "<<random_pos<<endl;
+    //     // RLOG << GetCorrectedPos()<<endl;
     }
 }
 
-void CLamb::TurnLeft()
-{ wheels_act->SetLinearVelocity(speed/2, speed); }
 
-void CLamb::TurnRight()
-{ wheels_act->SetLinearVelocity(speed, speed/2); }
+void CLamb::TurnLeft() {
+     wheels_act->SetLinearVelocity(speed_factor*rot_vel/2, speed_factor*rot_vel);
+ }
+void CLamb::TurnRight() {
+     wheels_act->SetLinearVelocity(speed_factor*rot_vel, speed_factor*rot_vel/2);
+ }
 
-void CLamb::MoveForward()
-{ wheels_act->SetLinearVelocity(speed, speed); }
+void CLamb::MoveForward() {
+     wheels_act->SetLinearVelocity(speed_factor*max_vel, speed_factor*max_vel);
+  }
 
 void CLamb::Stop()
 { wheels_act->SetLinearVelocity(0.0f, 0.0f); }
 
-void CLamb::Ping(){
-    neightbors.clear();
-
-    UInt8 *data_b = new UInt8[26];
-    data_b[0] = id_num;
-    data_b[1] = (UInt8) CODE_PING;
-
-    rb_act->SetData(CByteArray(data_b, 26));
-    delete data_b;
-    clear_message = true; //para enviarlo una sola vez
-}
-
 //Prepara el mensaje para enviar la posición actual cuando acabe el control step
 void CLamb::SendPosition(){
-
     CByteArray mess_data;
     mess_data << id_num;
-    mess_data << (UInt8) CODE_PING_REPLY;
     mess_data << pos.GetX();
     mess_data << pos.GetY();
+    mess_data << rot.z.GetValue();
     rb_act->SetData(mess_data);
 
-    clear_message = true; //para enviarlo una sola vez
+    // clear_message = true; //para enviarlo una sola vez
 }
 
 
 void CLamb::PollMessages(){
+    neightbors.clear();
     CCI_RangeAndBearingSensor::TReadings messages = rb_sens->GetReadings();
     CCI_RangeAndBearingSensor::TReadings::iterator m;
     for(m = messages.begin() ; m != messages.end(); ++m){
-        switch (m->Data[1]) {
-            case CODE_PING:
-                //SendPosition prepara el mensaje que se enviara en el proximo tick
-                //no importa que se llame más de una vez en el bucle, solo se envia una vez
-                SendPosition();
-                break;
-            case CODE_PING_REPLY:
-                // RLOG<<" recibe de "<<m->Data[0];
-                Neightbor_Info n = neightbors[m->Data.PopFront<UInt8>()];
-                m->Data.PopFront<UInt8>(); //descartar el codigo del mensaje (Data[1])
-                n.pos.SetX(m->Data.PopFront<Real>());
-                n.pos.SetY(m->Data.PopFront<Real>());
-                n.range = m->Range;
-                n.bearing = m->HorizontalBearing;
+        Neightbor_Info n = neightbors[m->Data.PopFront<UInt8>()];
+        n.pos.SetX(m->Data.PopFront<Real>());
+        n.pos.SetY(m->Data.PopFront<Real>());
+        n.velocity = CVector2(1,0).Rotate(CRadians(m->Data.PopFront<Real>()));
 
+        // n.range = m->Range;
+        // n.bearing = m->HorizontalBearing;
 
-                // LOG<<", pos: ("<< n.pos.GetX()<<", " <<n.pos.GetY()<<"), range: " << n.range<< ", bearing: "<< n.bearing<<")\n";
-                // break;
-        }
+        // if(show_debug){
+        //     UInt8 nada = m->Data[0];
+        //     LOG<< nada << "\n";
+        //     LOG<<"  Pos: "<< n.pos.GetX()<<", " <<n.pos.GetY()<<"\n";
+        //     LOG<<"  Vel: "<< n.velocity.Angle().GetValue()<<"\n";
+        //     // LOG<<"  range: " << m->Range<< "\n";
+        //     // LOG<<"  bearing: "<< m->HorizontalBearing<<")\n";
+        // }
     }
-    // if(messages.size() > 0)
+    // if(show_debug && messages.size() > 0){
     //     RLOG<<" tiene "<<neightbors.size()<<" vecinos\n";
+    // }
+
 }
 
-//Calculo del vector de direccion teniendo en cuenta la direccion del objetivo y la de
-//los obstaculos a la vista. Alternativa simplificada a CalculateGradient de APF
-CVector2 CLamb::CalculateDirection(CVector2 target){
+//Cálculo del vector de dirección teniendo en cuenta la direccion del objetivo y la de
+//los obstaculos a la vista. Versión simplificada de Artificial Potential Fields
+CVector2 CLamb::simplifiedAPF(CVector2 target){
     // inicialmente la direccion es la del objetivo
     CVector2 direction = target - pos;
     direction.Normalize();
@@ -272,13 +250,14 @@ CVector2 CLamb::CalculateDirection(CVector2 target){
 }
 
 
-// TODO añadir giros mas pequeños para prevenir oscilacion?
+// TODO añadir giros mas pequeños para prevenir oscilacion,
+// o tal vez trastear con los parametros
 void CLamb::GoToPoint(CVector2 target) {
-    if(show_debug){
-        LOG<<"POS:"<< pos<<endl;
-        LOG<<"TARGET POS:"<< target<<endl;
-    }
-    CVector2  v = CalculateDirection(target);
+    // if(show_debug){
+    //     LOG<<"POS:"<< pos<<endl;
+    //     LOG<<"TARGET POS:"<< target<<endl;
+    // }
+    CVector2  v = simplifiedAPF(target);
     CRadians angle_remaining = (v.Angle() - rot.z).SignedNormalize();
 
     // RLOG<<"Angulo objetivo: "<< v.Angle().GetValue() * CRadians::RADIANS_TO_DEGREES<< endl;
@@ -318,8 +297,8 @@ CVector2 CLamb::GetClosestTrough(Stat_type stat){
         if((t - pos).Length() < min)
             closest = t;
     }
-    if(show_debug)
-        LOG<<"CLOSEST_POS: "<<closest<<endl;
+    // if(show_debug)
+    //     LOG<<"CLOSEST_POS: "<<closest<<endl;
 
     return closest;
 }

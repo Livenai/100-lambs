@@ -234,8 +234,9 @@ class Log():
 
         for row in self.matrix:
             n = sum(row)
-            for i in range(len(row)):
-                row[i] /= n
+            if n != 0:
+                for i in range(len(row)):
+                    row[i] /= n
 
 
     @staticmethod
@@ -287,7 +288,7 @@ class Log():
         y = [self.results["tiempo total {0}(h)".format(s)] / self.num_days for s in x]
 
         # Debug
-        print('  {0} horas de actividad al dia[DEBUG]'.format(sum(y)))
+        # print('  {0} horas de actividad al dia[DEBUG]'.format(sum(y)))
 
         plt.figure(self.name)
         plt.bar(x, y, align = 'center')
@@ -349,6 +350,7 @@ class Log():
         self._calc_forage(food, water, 1000)
         self._cluster(500)
         self._calc_sleep(10)
+        # self._calc_sleep(0.3)
         self._states_stats()
         self._displacement_stats()
         self._transition_matrix()
@@ -367,8 +369,8 @@ if __name__ == '__main__':
 
             l.individual_analisys()
             l.show_results()
-            # l._plot_state_time()
-        # Log.plot_state_time_averaged(logs)
+            l._plot_state_time()
+        Log.plot_state_time_averaged(logs)
         m = Log.average_transition_matrix(logs)
         print('Promedio de {0} corderos'.format(len(logs)))
         Log.print_transition_matrix(m)

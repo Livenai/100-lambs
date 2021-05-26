@@ -31,9 +31,6 @@
 // #include "trough_entity.h" TODO usar el directorio donde está instalado
 #include "/home/cerbero/TFG/100-lambs/plugins/simulator/entities/trough_entity.h"
 
-#define CODE_PING 1
-#define CODE_PING_REPLY 2
-
 //en radianes
 #define ANGLE_THRESHOLD 0.0523
 
@@ -46,8 +43,9 @@ using namespace std;
 
  struct Neightbor_Info{
      CVector2 pos;
-     Real range;
-     CRadians bearing;
+     CVector2 velocity;
+     // Real range;
+     // CRadians bearing;
  };
 
 struct EulerRotation{
@@ -107,11 +105,10 @@ private:
     void MoveForward();
     void Stop();
 
-    void Ping();
     void SendPosition();
     void PollMessages();
 
-    CVector2 CalculateDirection(CVector2 target);
+    CVector2 simplifiedAPF(CVector2 target);
     void GoToPoint(CVector2 target);
 
     Real distanceToPoint(CVector2 point);
@@ -143,16 +140,15 @@ private:
     CCI_RangeAndBearingSensor *rb_sens;
     CCI_RangeAndBearingActuator *rb_act;
 
-    Real speed;
+    Real max_vel, rot_vel, speed_factor;
 
     //parametros de Artificial Potential Fields
     Real alpha, beta;
 
     Real threshold_distance;
 
-    //intervalos y timers para regular el ritmo de ejecución
-    Real ping_interval, bt_interval;
-    Real ping_timer, bt_timer;
+    //Para regular el ritmo de ejecución
+    Real bt_interval, bt_timer;
 
     UInt8 mess_count;
     bool clear_message;//bandera
@@ -161,9 +157,8 @@ private:
     CVector2 pos;
     EulerRotation rot;
 
-    map<Stat_type, UInt32> stats;
-
     Stat_type current_state;
+    map<Stat_type, UInt32> stats;
 
     BrainTree::BehaviorTree bt;
     bool show_debug;
@@ -220,6 +215,15 @@ private:
     #define NODE_DECLARATION_3(NODE_NAME) \
     class NODE_NAME: public NodeLamb{\
         public:    \
+        NODE_NAME(CLamb * lamb):NodeLamb(lamb){}\
+        void initialize() override;\
+        Status update() override;\
+        void terminate(Status s) override;\
+    };
+
+    #define NODE_DECLARATION_4(NODE_NAME) \
+    class NODE_NAME: public NodeLamb{\
+        public:    \
         NODE_NAME(CLamb * lamb, Stat_type stat):NodeLamb(lamb),stat(stat){}\
         Status update() override;\
         private:    \
@@ -240,16 +244,17 @@ private:
     NODE_DECLARATION_2(Rest)
 
     NODE_DECLARATION_0(SelectRandomPos)
-    NODE_DECLARATION_0(IsAtRandomPos)
-    NODE_DECLARATION_1(GoToRandomPos)
+    NODE_DECLARATION_0(IsAtRandomPosition)
+    NODE_DECLARATION_3(Walk)
+    NODE_DECLARATION_2(Wait)
 
-    NODE_DECLARATION_3(SetLedColor)
+    NODE_DECLARATION_4(SetLedColor)
 
 
     #undef NODE_DECLARATION_0
     #undef NODE_DECLARATION_1
     #undef NODE_DECLARATION_2
-    #undef NODE_DECLARATION_3
+    #undef NODE_DECLARATION_4
 
 
 };

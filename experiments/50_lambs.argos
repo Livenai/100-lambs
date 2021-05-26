@@ -6,10 +6,9 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="300"
+    <experiment length="785836"
                 ticks_per_second="10"
-                 />
-                <!-- random_seed="124" /> -->
+                random_seed="785836" />
   </framework>
 
   <!-- *************** -->
@@ -30,14 +29,16 @@
             <lambbot_proximity implementation="default" show_rays="false" />
             <positioning implementation="default" />
       </sensors>
-      <params linear_speed="30" rot_speed="15" ping_interval="0.5" hp_dec_interval="1" alpha="3" beta="1" threshold_distance="0.5"/>
+      <params velocity="30" rot_velocity="15" ping_interval="0.5" bt_interval="0.1" alpha="3" beta="1" threshold_distance="0.5"/>
   </lamb_controller>
 
   </controllers>
 
   <loop_functions
       library="build/loop_functions/lamb_loop_functions/liblamb_loop_functions"
-                      label="lamb_loop_functions" log_interval="137" number_of_logs="6">
+                      label="lamb_loop_functions"
+                      log_interval="1" number_of_logs="6">
+                      <!-- log_interval="137" number_of_logs="6"> -->
   </loop_functions>
   <!-- *********************** -->
   <!-- * Arena configuration * -->
@@ -68,7 +69,7 @@
       <position method="uniform" min="0,-2.5,0" max="2.5,0,0" />
       <orientation method="gaussian" mean="0,0,0" std_dev="360,0,0" />
       <entity quantity="50" max_trials="500">
-        <lamb-bot id="lamb_" rab_data_size="26" rab_range="2.5" proxi_range="0.25">
+        <lamb-bot id="lamb_" rab_data_size="37" rab_range="0.5" proxi_range="0.25">
           <controller config="lc" />
       </lamb-bot>
       </entity>
@@ -113,7 +114,7 @@
   <!-- * Media * -->
   <!-- ********* -->
   <media>
-      <range_and_bearing id="rab" check_occlusions="false" />
+      <range_and_bearing id="rab" check_occlusions="false"/>
       <led id="leds" />
   </media>
 
