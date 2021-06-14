@@ -43,7 +43,7 @@ using namespace std;
 
  struct Neightbor_Info{
      CVector2 pos;
-     CVector2 velocity;
+     CVector2 vel;
      // Real range;
      // CRadians bearing;
  };

@@ -1,6 +1,7 @@
 build/
 video/
 log*
+*.json
 tracking_logs*
 logs_analysed/
 figures/

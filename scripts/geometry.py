@@ -87,23 +87,37 @@ class Circle:
         return point.distance(self.center) <= self.radius #+ error TODO
 
 
+    # Funcion recursiva para calcular el circulo minimo
+    # Se llama desde min_cicle para iniciarla correctamente
+    # p inicialmente contiene todos los puntos que hay que incluir en el circulo
+    # r contiene puntos que podrian estar en la circunferencia exterior
     @staticmethod
     def _welzl(p, r):
-        # soluciones trivial
         if len(p) == 1 and len(r) == 0:
             return Circle(center = p[0], radius = 0)
-        elif len(p) == 0 or len(r) >= 3:
+        elif len(p) == 0 and len(r) <3:
             if len(r) == 1:
                 return Circle(center = r[0], radius = 0)
             elif len(r) == 2:
                 center = Point.mid_point(r[0], r[1])
                 radius = center.distance(r[0])
                 return Circle(center, radius)
-            else:
-                a = Point.bisector(r[0],r[1])
-                b = Point.bisector(r[1],r[2])
-                center = Line.intersection(a, b)
+        elif len(r) >= 3:
+            a = Point.bisector(r[0],r[1])
+            b = Point.bisector(r[1],r[2])
+            center = Line.intersection(a, b)
+            if center != None:
                 radius = center.distance(r[0])
+                return Circle(center, radius)
+            else:
+            # en este caso los puntos de r estan alineados se excluye el que
+            # está en el medio y se hace el circulo minimo con los otros
+                p2 = [(v, sum([v.distance(z) for z in r[:3]])) for v in r[:3]]
+                p2.remove(min(p2, key=lambda x: x[1])) #estos elimina ese punto
+                center = Point.mid_point(p2[0][0], p2[1][0])
+                radius = center.distance(p2[0][0])
+
+                # return Circle(center, 0)
                 return Circle(center, radius)
         else:
             circle = Circle._welzl(p[1:], r)
@@ -111,8 +125,37 @@ class Circle:
                 return circle
             else:
                 return Circle._welzl(p[1:], r + [p[0]])
+    # @staticmethod
+    # def _welzl(p, r):
+    #     # soluciones trivial
+    #     print("p:{}".format(len(p)),end=', ')
+    #     print("r:{}".format(len(r)))
+    #     if len(p) == 1 and len(r) == 0:
+    #         return Circle(center = p[0], radius = 0)
+    #     elif len(p) == 0 or len(r) >= 3:
+    #         if len(r) == 1:
+    #             return Circle(center = r[0], radius = 0)
+    #         elif len(r) == 2:
+    #             center = Point.mid_point(r[0], r[1])
+    #             radius = center.distance(r[0])
+    #             return Circle(center, radius)
+    #         else:
+    #             a = Point.bisector(r[0],r[1])
+    #             b = Point.bisector(r[1],r[2])
+    #             center = Line.intersection(a, b)
+    #             radius = center.distance(r[0])
+    #             return Circle(center, radius)
+    #     else:
+    #         circle = Circle._welzl(p[1:], r)
+    #         if circle.includePoint(p[0]):
+    #             print("NO")
+    #             return circle
+    #         else:
+    #
+    #
+    #             return Circle._welzl(p[1:], r + [p[0]])
 
-
+    #Devuelve el circulo más pequeño que incluye todos los puntos dados
     @staticmethod
     def min_circle(* points):
         if len(points) == 0:
@@ -138,7 +181,7 @@ class Line:
     @staticmethod
     def intersection(l0, l1):
         if l0.slope == l1.slope:
-            return None #a no ser que sean la misma recta
+            return None # son paralelas
 
         if "inf" not in (l0.slope, l1.slope):
             x = (l0.slope*l0.p0.x) -l0.p0.y -(l1.slope* l1.p0.x)+l1.p0.y

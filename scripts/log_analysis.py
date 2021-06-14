@@ -191,7 +191,7 @@ class Log():
                 durations = [0]
 
             self.results["media tiempo {0} cada vez (s)".format(state)] = int(np.average(durations))
-            self.results["varianza tiempo {0} cada vez".format(state)] = int(np.var(durations))
+            self.results["varianza tiempo {0} cada vez".format(state)] =  int(np.var(durations))
             self.results["tiempo total {0}(h)".format(state)] = sum(durations)/3600
 
 
@@ -220,6 +220,8 @@ class Log():
                 total_time += t
                 vel.append((dis*6)/(t*100))
 
+        if len(vel) == 0:
+            vel = [0]
 
         self.results["media velocidad (m/min)"] = np.average(vel)
         self.results["varianza velocidad"] = np.var(vel)
@@ -370,8 +372,9 @@ if __name__ == '__main__':
             l.individual_analisys()
             l.show_results()
             l._plot_state_time()
-        Log.plot_state_time_averaged(logs)
-        m = Log.average_transition_matrix(logs)
-        print('Promedio de {0} corderos'.format(len(logs)))
-        Log.print_transition_matrix(m)
-        Log.save_matrix(m)
+        if len(logs) > 1:
+            Log.plot_state_time_averaged(logs)
+            m = Log.average_transition_matrix(logs)
+            print('Promedio de {0} corderos'.format(len(logs)))
+            Log.print_transition_matrix(m)
+            Log.save_matrix(m)

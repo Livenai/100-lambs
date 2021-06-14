@@ -77,16 +77,51 @@ class mywindow(QtWidgets.QMainWindow):
 
     def test_minCircle(self, num = 3):
         points = self.generatePoints(num)
-        # points['a'] = Point(500, 200)
-        # points['b'] = Point(200, 200)
-        # points['c'] = Point(300, 500)
+        # points = {}
+        # points['a'] = Point(300, 0)
+        # points['b'] = Point(100, 0)
+        # points['c'] = Point(200, 100)
 
         c = Circle.min_circle(*[p for p in points.values()])
+
         circle = self.ui.canvas.addEllipse(-c.radius, -c.radius, c.radius*2, c.radius*2 , self.penGreen)
         circle.setPos(c.center.x, -c.center.y)
 
         self.paintPoints(points)
-        print('circle pos {0}, radius{1}'.format(c.center, c.radius))
+        print('circle pos: {0}, radius: {1}'.format(c.center, c.radius))
+
+
+    #TODO Esta configuración concreta de puntos falla
+    def test_minCircle2(self):
+        points = {}
+
+        points["1"] = Point(903, 5868)
+        points["2"] = Point(928, 5858)
+        points["3"] = Point(863, 5774)
+        points["4"] = Point(863, 5774)
+        points["5"] = Point(944, 5864)
+        points["6"] = Point(963, 5844)
+        points["7"] = Point(924, 5559)
+        points["8"] = Point(924, 5559)
+        points["9"] = Point(1561, 5591)
+
+        c = Circle.min_circle(*[p for p in points.values()])
+        for l, p in points.items():
+            if not c.includePoint(p):
+                print("{0}, queda a {1} de estar dentro".format(l,c.center.distance(p)-c.radius))
+
+        for p in points.values():
+            p.x-= 1000
+            p.y-= 5700
+
+        c.center.x -= 1000
+        c.center.y -= 5700
+
+        circle = self.ui.canvas.addEllipse(-c.radius, -c.radius, c.radius*2, c.radius*2 , self.penGreen)
+        circle.setPos(c.center.x, -c.center.y)
+
+        self.paintPoints(points)
+        print('circle 2 pos: {0}, radius: {1}'.format(c.center, c.radius))
 
     def test_intersections(self, num = 4):
         points = self.generatePoints(num)
@@ -141,9 +176,10 @@ if __name__ == "__main__":
     application = mywindow()
     application.show()
     # application.test_text()
-    # application.test_minCircle(4)
+    application.test_minCircle(5)
+    # application.test_minCircle2()
     # application.snapshot("1")
     # application.test_intersections()
     # application.test_intersections()
-    application.test_rectangles_distance(5)
+    # application.test_rectangles_distance(5)
     sys.exit(app.exec())

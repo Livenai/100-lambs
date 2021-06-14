@@ -131,7 +131,6 @@ void CLamb::Reset() {
     pos_readings = pos_sens->GetReading();
     pos = CVector2(pos_readings.Position.GetX(), pos_readings.Position.GetY());
     mess_count = 0;
-    clear_message = false;
     // rb_act->ClearData();
     //cada tick de la simulacion solo los individuos cuyo timer haya llegado a 0 ejecutaran el BT
     bt_timer = (id_num%(UInt8)bt_interval)+1;
@@ -160,19 +159,30 @@ void CLamb::ControlStep() {
         bt_timer = bt_interval;
     }
 
-    SendPosition();
-    PollMessages();
-
     if(show_debug){
         // RLOG<<rot.z.GetValue()<<std::endl;
 
-    //     //Esto tiene menos sentido ahora
-        RLOG <<"w: "<< stats[water]<<", f: "<<stats[food]<<", r: "<< stats[rest]
-        <<", walk: "<< stats[walk]<<"\n";
-        LOG<<"priority: "<<current_state<<endl;
-    //     // LOG<<"random_pos: "<<random_pos<<endl;
-    //     // RLOG << GetCorrectedPos()<<endl;
+        LOG << "---------------\n";
+        RLOG << "\nPosicion: ("<< pos<<")\n";
+        string priority;
+        switch (current_state) {
+            case 0: priority = "beber"; break;
+            case 1: priority = "comer"; break;
+            case 2: priority = "descansar"; break;
+            case 3: priority = "social ERROR"; break;
+            case 4: priority = "pasear"; break;
+            default: priority = "ERROR";
+        }
+        LOG<<"priority: "<<priority<<endl;
+        //Estos contadores son para regular la duración de la actividad
+        LOG <<"w: "<< stats[water]<<", f: "<<stats[food]<<", r: "<< stats[rest]
+            <<", walk: "<< stats[walk]<<"\n";
+        // LOG<<"random_pos: "<<random_pos<<endl;
     }
+
+    SendPosition();
+    PollMessages();
+
 }
 
 
@@ -197,9 +207,8 @@ void CLamb::SendPosition(){
     mess_data << pos.GetX();
     mess_data << pos.GetY();
     mess_data << rot.z.GetValue();
+    mess_data << speed_factor;
     rb_act->SetData(mess_data);
-
-    // clear_message = true; //para enviarlo una sola vez
 }
 
 
@@ -208,27 +217,25 @@ void CLamb::PollMessages(){
     CCI_RangeAndBearingSensor::TReadings messages = rb_sens->GetReadings();
     CCI_RangeAndBearingSensor::TReadings::iterator m;
     for(m = messages.begin() ; m != messages.end(); ++m){
-        Neightbor_Info n = neightbors[m->Data.PopFront<UInt8>()];
+        Neightbor_Info n;
+        UInt8 id_neight = m->Data.PopFront<UInt8>();
         n.pos.SetX(m->Data.PopFront<Real>());
         n.pos.SetY(m->Data.PopFront<Real>());
-        n.velocity = CVector2(1,0).Rotate(CRadians(m->Data.PopFront<Real>()));
-
-        // n.range = m->Range;
-        // n.bearing = m->HorizontalBearing;
-
-        // if(show_debug){
-        //     UInt8 nada = m->Data[0];
-        //     LOG<< nada << "\n";
-        //     LOG<<"  Pos: "<< n.pos.GetX()<<", " <<n.pos.GetY()<<"\n";
-        //     LOG<<"  Vel: "<< n.velocity.Angle().GetValue()<<"\n";
-        //     // LOG<<"  range: " << m->Range<< "\n";
-        //     // LOG<<"  bearing: "<< m->HorizontalBearing<<")\n";
-        // }
+        //se obtiene la direccion del vecino como un vector con magnitud 1
+        n.vel = CVector2(1,0).Rotate(CRadians(m->Data.PopFront<Real>()));
+        //se multiplica el vector direccion por la velocidad
+        n.vel *= m->Data.PopFront<Real>();
+        neightbors[id_neight] = n;
     }
-    // if(show_debug && messages.size() > 0){
-    //     RLOG<<" tiene "<<neightbors.size()<<" vecinos\n";
-    // }
-
+        if(show_debug){
+            LOG<< neightbors.size()<<" vecinos:\n";
+            for (map<UInt8,Neightbor_Info>::iterator it=neightbors.begin(); it!=neightbors.end(); ++it){
+                LOG<<"..id: "<<it->first << endl;
+                LOG<<"....pos: ("<< it->second.pos.GetX()<<", " <<it->second.pos.GetY()<<")\n";
+                LOG<<"....rot: "<< it->second.vel.Angle().GetValue()<<" rads\n";
+                LOG<<"....vel: "<< it->second.vel.Length()<<"\n";
+            }
+        }
 }
 
 //Cálculo del vector de dirección teniendo en cuenta la direccion del objetivo y la de

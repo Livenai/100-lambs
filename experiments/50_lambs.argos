@@ -6,7 +6,7 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="785836"
+    <experiment length="1800"
                 ticks_per_second="10"
                 random_seed="785836" />
   </framework>
@@ -69,7 +69,7 @@
       <position method="uniform" min="0,-2.5,0" max="2.5,0,0" />
       <orientation method="gaussian" mean="0,0,0" std_dev="360,0,0" />
       <entity quantity="50" max_trials="500">
-        <lamb-bot id="lamb_" rab_data_size="37" rab_range="0.5" proxi_range="0.25">
+        <lamb-bot id="lamb_" rab_data_size="49" rab_range="0.5" proxi_range="0.25">
           <controller config="lc" />
       </lamb-bot>
       </entity>
