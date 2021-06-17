@@ -1,6 +1,6 @@
 include_directories(${CMAKE_SOURCE_DIR})
 add_subdirectory(lamb_loop_functions)
-add_subdirectory(galib_lamb_loop_functions)
+# add_subdirectory(galib_lamb_loop_functions)
 
 if(ARGOS_COMPILE_QTOPENGL)
   add_subdirectory(lamb_qtuser_functions)
