@@ -29,7 +29,7 @@
 // TODO es necesario incluir la lambbot_entity?
 #include <argos3/plugins/robots/lamb-bot/simulator/lambbot_entity.h>
 // #include "trough_entity.h" TODO usar el directorio donde está instalado
-#include "/home/cerbero/TFG/100-lambs/plugins/simulator/entities/trough_entity.h"
+#include <argos3/plugins/simulator/entities/trough_entity.h>
 
 //en radianes
 #define ANGLE_THRESHOLD 0.0523

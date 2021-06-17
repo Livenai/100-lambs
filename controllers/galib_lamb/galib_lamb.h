@@ -25,8 +25,7 @@
 #include <argos3/plugins/simulator/visualizations/qt-opengl/qtopengl_user_functions.h>
 // TODO es necesario incluir la lambbot_entity?
 #include <argos3/plugins/robots/lamb-bot/simulator/lambbot_entity.h>
-// #include "trough_entity.h" TODO usar el directorio donde está instalado
-#include "/home/cerbero/TFG/100-lambs/plugins/simulator/entities/trough_entity.h"
+#include <argos3/plugins/simulator/entities/trough_entity.h>
 
 #define CODE_PING 1
 #define CODE_PING_REPLY 2
